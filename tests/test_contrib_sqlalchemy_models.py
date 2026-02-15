@@ -86,3 +86,41 @@ async def test_shipment_model_still_works(async_session) -> None:
     assert shipment.id == "ship-1"
     assert shipment.status == "new"
     assert shipment.provider == "dummy"
+
+
+async def test_shipment_model_has_timestamps_and_order_id(
+    async_session,
+) -> None:
+    """Verify ShipmentModel has created_at, updated_at, and order_id."""
+    mapper = inspect(ShipmentModel)
+    column_names = {col.key for col in mapper.column_attrs}
+
+    assert "created_at" in column_names
+    assert "updated_at" in column_names
+    assert "order_id" in column_names
+
+
+async def test_shipment_model_order_id_indexed(async_session) -> None:
+    """Verify order_id column is indexed."""
+    table = ShipmentModel.__table__
+    indexed_columns = set()
+    for idx in table.indexes:
+        for col in idx.columns:
+            indexed_columns.add(col.name)
+    assert "order_id" in indexed_columns
+
+
+async def test_shipment_model_timestamps_default(async_session) -> None:
+    """Verify timestamps are set automatically."""
+    shipment = ShipmentModel(
+        id="ship-ts",
+        provider="dummy",
+        order_id="order-1",
+    )
+    async_session.add(shipment)
+    await async_session.commit()
+    await async_session.refresh(shipment)
+
+    assert shipment.created_at is not None
+    assert shipment.updated_at is not None
+    assert shipment.order_id == "order-1"

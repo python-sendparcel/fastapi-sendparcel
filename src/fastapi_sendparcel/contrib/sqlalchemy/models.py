@@ -19,11 +19,21 @@ class ShipmentModel(Base):
     __tablename__ = "sendparcel_shipments"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    order_id: Mapped[str] = mapped_column(String(64), index=True, default="")
     status: Mapped[str] = mapped_column(String(32), default="new")
     provider: Mapped[str] = mapped_column(String(64))
     external_id: Mapped[str] = mapped_column(String(128), default="")
     tracking_number: Mapped[str] = mapped_column(String(128), default="")
     label_url: Mapped[str] = mapped_column(String(512), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(tz=UTC),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(tz=UTC),
+        onupdate=lambda: datetime.now(tz=UTC),
+    )
 
 
 class CallbackRetryModel(Base):
