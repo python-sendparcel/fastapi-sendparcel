@@ -1,5 +1,7 @@
 """FastAPI adapter public API."""
 
+__version__ = "0.1.0"
+
 from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.registry import FastAPIPluginRegistry
 from fastapi_sendparcel.router import create_shipping_router
