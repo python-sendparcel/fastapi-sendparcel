@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, String
+import uuid
+from datetime import UTC, datetime
+
+from sqlalchemy import JSON, DateTime, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -24,9 +27,27 @@ class ShipmentModel(Base):
 
 
 class CallbackRetryModel(Base):
-    """Queued callback retry payload."""
+    """Webhook callback retry queue entry."""
 
     __tablename__ = "sendparcel_callback_retries"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    shipment_id: Mapped[str] = mapped_column(String(64), index=True)
     payload: Mapped[dict] = mapped_column(JSON)
+    headers: Mapped[dict] = mapped_column(JSON)
+    attempts: Mapped[int] = mapped_column(default=0)
+    next_retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+    last_error: Mapped[str | None] = mapped_column(
+        Text, nullable=True, default=None
+    )
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(tz=UTC),
+    )
