@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sendparcel.exceptions import InvalidCallbackError
+from sendparcel.exceptions import CommunicationError, InvalidCallbackError
 from sendparcel.provider import BaseProvider
 from sendparcel.registry import registry
 
@@ -103,9 +103,6 @@ def test_invalid_callback_does_not_enqueue_retry(
 
         assert callback.status_code == 400
         assert len(retry_store.events) == 0
-
-
-from sendparcel.exceptions import CommunicationError
 
 
 class CommErrorProvider(BaseProvider):
