@@ -1,6 +1,7 @@
 """Router tests."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI
+from sendparcel.exceptions import CommunicationError
 
 from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.router import create_shipping_router
@@ -27,3 +28,18 @@ def test_create_shipping_router_returns_apirouter() -> None:
     )
 
     assert isinstance(router, APIRouter)
+
+
+async def test_exception_handlers_registered_after_lifespan() -> None:
+    """Exception handlers should be registered when the router lifespan runs."""
+    app = FastAPI()
+    router = create_shipping_router(
+        config=SendparcelConfig(default_provider="dummy"),
+        repository=_Repo(),
+    )
+    app.include_router(router)
+
+    # Before startup, no exception handlers for CommunicationError
+    async with app.router.lifespan_context(app) as _:
+        handlers = app.exception_handlers
+        assert CommunicationError in handlers
