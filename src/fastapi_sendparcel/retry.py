@@ -1,35 +1,106 @@
-"""Retry queue helpers for failed callbacks."""
+"""Webhook retry mechanism with exponential backoff."""
 
-from __future__ import annotations
+import logging
+from datetime import UTC, datetime, timedelta
 
-from datetime import UTC, datetime
+from sendparcel.flow import ShipmentFlow
+from sendparcel.protocols import ShipmentRepository
 
-import anyio
-
+from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.protocols import CallbackRetryStore
 
+logger = logging.getLogger(__name__)
 
-async def enqueue_callback_retry(
-    store: CallbackRetryStore | None,
+
+def compute_next_retry_at(
+    attempt: int,
+    backoff_seconds: int,
+) -> datetime:
+    """Compute the next retry time with exponential backoff.
+
+    delay = backoff_seconds * 2^(attempt - 1)
+    """
+    delay = backoff_seconds * (2 ** (attempt - 1))
+    return datetime.now(tz=UTC) + timedelta(seconds=delay)
+
+
+async def process_due_retries(
     *,
-    provider_slug: str,
-    shipment_id: str,
-    payload: dict,
-    headers: dict[str, str],
-    reason: str,
-) -> None:
-    """Persist callback retry payload when a retry store is configured."""
-    await anyio.sleep(0)
-    if store is None:
-        return
+    retry_store: CallbackRetryStore,
+    repository: ShipmentRepository,
+    config: SendparcelConfig,
+) -> int:
+    """Process all due callback retries.
 
-    await store.enqueue(
-        {
-            "provider": provider_slug,
-            "shipment_id": shipment_id,
-            "payload": payload,
-            "headers": headers,
-            "reason": reason,
-            "queued_at": datetime.now(tz=UTC).isoformat(),
-        }
-    )
+    Returns the number of retries processed.
+    """
+    retries = await retry_store.get_due_retries(limit=10)
+    processed = 0
+
+    for retry in retries:
+        retry_id = retry["id"]
+        shipment_id = retry["shipment_id"]
+        payload = retry["payload"]
+        headers = retry["headers"]
+        attempts = retry["attempts"]
+
+        try:
+            shipment = await repository.get_by_id(shipment_id)
+        except KeyError:
+            logger.error(
+                "Retry %s: shipment %s not found, marking exhausted",
+                retry_id,
+                shipment_id,
+            )
+            await retry_store.mark_exhausted(retry_id)
+            processed += 1
+            continue
+
+        flow = ShipmentFlow(
+            repository=repository,
+            config=config.providers,
+        )
+        raw_body = payload.get("_raw_body")
+        callback_kwargs = (
+            {"raw_body": raw_body.encode("utf-8")}
+            if raw_body is not None
+            else {}
+        )
+
+        try:
+            await flow.handle_callback(
+                shipment=shipment,
+                data=payload,
+                headers=headers,
+                **callback_kwargs,
+            )
+            await retry_store.mark_succeeded(retry_id)
+            logger.info(
+                "Retry %s: callback for shipment %s succeeded",
+                retry_id,
+                shipment_id,
+            )
+        except Exception as exc:
+            if attempts >= config.retry_max_attempts:
+                await retry_store.mark_exhausted(retry_id)
+                logger.warning(
+                    "Retry %s: exhausted after %d attempts: %s",
+                    retry_id,
+                    attempts,
+                    exc,
+                )
+            else:
+                await retry_store.mark_failed(
+                    retry_id,
+                    error=str(exc),
+                )
+                logger.info(
+                    "Retry %s: attempt %d failed: %s",
+                    retry_id,
+                    attempts,
+                    exc,
+                )
+
+        processed += 1
+
+    return processed
