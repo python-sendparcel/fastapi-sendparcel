@@ -81,8 +81,29 @@ class RetryStore:
     def __init__(self) -> None:
         self.events: list[dict] = []
 
-    async def enqueue(self, payload: dict) -> None:
-        self.events.append(payload)
+    async def store_failed_callback(
+        self, shipment_id: str, payload: dict, headers: dict
+    ) -> str:
+        self.events.append(
+            {
+                "shipment_id": shipment_id,
+                "payload": payload,
+                "headers": headers,
+            }
+        )
+        return f"retry-{len(self.events)}"
+
+    async def get_due_retries(self, limit: int = 10) -> list[dict]:
+        return []
+
+    async def mark_succeeded(self, retry_id: str) -> None:
+        pass
+
+    async def mark_failed(self, retry_id: str, error: str) -> None:
+        pass
+
+    async def mark_exhausted(self, retry_id: str) -> None:
+        pass
 
 
 @pytest.fixture(autouse=True)

@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 from json import JSONDecodeError
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sendparcel.exceptions import InvalidCallbackError
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
+from sendparcel.exceptions import CommunicationError, InvalidCallbackError
 
 from fastapi_sendparcel.dependencies import (
     get_flow,
     get_repository,
     get_retry_store,
 )
-from fastapi_sendparcel.retry import enqueue_callback_retry
 from fastapi_sendparcel.schemas import CallbackResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -33,7 +36,7 @@ async def provider_callback(
     """Handle provider callback using core flow and retry hooks."""
     shipment = await repository.get_by_id(shipment_id)
     if str(shipment.provider) != provider_slug:
-        raise HTTPException(status_code=400, detail="Provider slug mismatch")
+        raise InvalidCallbackError("Provider slug mismatch")
 
     raw_body = await request.body()
     try:
@@ -49,29 +52,25 @@ async def provider_callback(
             headers,
             raw_body=raw_body,
         )
-    except InvalidCallbackError as exc:
-        await enqueue_callback_retry(
-            retry_store,
-            provider_slug=provider_slug,
-            shipment_id=shipment_id,
-            payload=payload,
-            headers=headers,
-            reason=str(exc),
-        )
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        await enqueue_callback_retry(
-            retry_store,
-            provider_slug=provider_slug,
-            shipment_id=shipment_id,
-            payload=payload,
-            headers=headers,
-            reason=str(exc),
-        )
-        raise HTTPException(
-            status_code=502,
-            detail="Callback handling failed",
-        ) from exc
+    except InvalidCallbackError:
+        # Bad callback data — do NOT enqueue retry, re-raise for 400 handler
+        raise
+    except CommunicationError as exc:
+        # Transient failure — enqueue for retry, then re-raise for 502 handler
+        if retry_store is not None:
+            retry_payload = dict(payload)
+            retry_payload["_raw_body"] = raw_body.decode("utf-8")
+            await retry_store.store_failed_callback(
+                shipment_id=shipment_id,
+                payload=retry_payload,
+                headers=headers,
+            )
+            logger.warning(
+                "Callback for shipment %s failed, queued for retry: %s",
+                shipment_id,
+                exc,
+            )
+        raise
 
     return CallbackResponse(
         provider=provider_slug,

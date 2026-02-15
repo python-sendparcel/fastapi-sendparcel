@@ -7,6 +7,7 @@ from sendparcel.provider import BaseProvider
 from sendparcel.registry import registry
 
 from fastapi_sendparcel.config import SendparcelConfig
+from fastapi_sendparcel.exceptions import register_exception_handlers
 from fastapi_sendparcel.router import create_shipping_router
 
 
@@ -42,6 +43,7 @@ class DummyProvider(BaseProvider):
 def _create_client(repo, resolver, retry_store):
     registry.register(DummyProvider)
     app = FastAPI()
+    register_exception_handlers(app)
     router = create_shipping_router(
         config=SendparcelConfig(
             default_provider="dummy",
@@ -82,9 +84,10 @@ def test_create_label_status_and_callback_flow(
         assert callback.status_code == 200
 
 
-def test_callback_error_enqueues_retry(
+def test_invalid_callback_does_not_enqueue_retry(
     repository, resolver, retry_store
 ) -> None:
+    """InvalidCallbackError should NOT trigger retry — bad data won't improve."""
     client = _create_client(repository, resolver, retry_store)
 
     with client:
@@ -99,4 +102,69 @@ def test_callback_error_enqueues_retry(
         )
 
         assert callback.status_code == 400
+        assert len(retry_store.events) == 0
+
+
+from sendparcel.exceptions import CommunicationError
+
+
+class CommErrorProvider(BaseProvider):
+    slug = "commerr"
+    display_name = "CommErr"
+
+    async def create_shipment(self, **kwargs):
+        return {"external_id": "ext-1", "tracking_number": "trk-1"}
+
+    async def create_label(self, **kwargs):
+        return {"format": "PDF", "url": "https://labels/s.pdf"}
+
+    async def verify_callback(self, data, headers, **kwargs):
+        pass
+
+    async def handle_callback(self, data, headers, **kwargs):
+        raise CommunicationError("provider unreachable")
+
+    async def fetch_shipment_status(self, **kwargs):
+        return {"status": "in_transit"}
+
+    async def cancel_shipment(self, **kwargs):
+        return True
+
+
+def _create_commerr_client(repo, resolver, retry_store):
+    registry.register(CommErrorProvider)
+    app = FastAPI()
+    register_exception_handlers(app)
+    router = create_shipping_router(
+        config=SendparcelConfig(
+            default_provider="commerr",
+            providers={"commerr": {}},
+        ),
+        repository=repo,
+        order_resolver=resolver,
+        retry_store=retry_store,
+    )
+    app.include_router(router)
+    return TestClient(app)
+
+
+def test_communication_error_enqueues_retry_and_returns_502(
+    repository, resolver, retry_store
+) -> None:
+    """CommunicationError (transient) should enqueue retry and return 502."""
+    client = _create_commerr_client(repository, resolver, retry_store)
+
+    with client:
+        created = client.post("/shipments", json={"order_id": "o-1"})
+        shipment_id = created.json()["id"]
+        client.post(f"/shipments/{shipment_id}/label")
+
+        callback = client.post(
+            f"/callbacks/commerr/{shipment_id}",
+            headers={},
+            json={"event": "picked_up"},
+        )
+
+        assert callback.status_code == 502
         assert len(retry_store.events) == 1
+        assert retry_store.events[0]["shipment_id"] == shipment_id
