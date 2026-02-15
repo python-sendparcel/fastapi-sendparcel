@@ -6,7 +6,6 @@ import logging
 from json import JSONDecodeError
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
 from sendparcel.exceptions import CommunicationError, InvalidCallbackError
 
 from fastapi_sendparcel.dependencies import (

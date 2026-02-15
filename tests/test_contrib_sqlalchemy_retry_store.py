@@ -1,6 +1,5 @@
 """SQLAlchemy retry store integration tests with real aiosqlite DB."""
 
-from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine

@@ -40,8 +40,9 @@ def test_all_exports_importable() -> None:
 
 
 def test_getattr_raises_for_unknown_attribute() -> None:
-    import fastapi_sendparcel
     import pytest
 
+    import fastapi_sendparcel
+
     with pytest.raises(AttributeError, match="no_such_thing"):
-        fastapi_sendparcel.no_such_thing
+        fastapi_sendparcel.no_such_thing  # noqa: B018

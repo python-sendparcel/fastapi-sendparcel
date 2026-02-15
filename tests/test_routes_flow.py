@@ -87,7 +87,7 @@ def test_create_label_status_and_callback_flow(
 def test_invalid_callback_does_not_enqueue_retry(
     repository, resolver, retry_store
 ) -> None:
-    """InvalidCallbackError should NOT trigger retry — bad data won't improve."""
+    """InvalidCallbackError should NOT trigger retry."""
     client = _create_client(repository, resolver, retry_store)
 
     with client:

@@ -7,9 +7,9 @@ import pytest
 from sendparcel.providers.dummy import DummyProvider
 from sendparcel.registry import registry
 
+from conftest import DemoOrder, DemoShipment
 from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.retry import compute_next_retry_at, process_due_retries
-from conftest import DemoOrder, DemoShipment
 
 
 class TestComputeNextRetryAt:

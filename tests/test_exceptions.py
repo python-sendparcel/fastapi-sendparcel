@@ -1,6 +1,6 @@
 """Exception handler tests."""
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sendparcel.exceptions import (
     CommunicationError,
