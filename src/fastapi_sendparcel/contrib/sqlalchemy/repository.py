@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -29,7 +31,7 @@ class SQLAlchemyShipmentRepository:
         if order is not None and "order_id" not in kwargs:
             kwargs["order_id"] = str(getattr(order, "id", order))
         shipment = ShipmentModel(
-            id=kwargs.get("id", ""),
+            id=kwargs.get("id") or str(uuid.uuid4()),
             status=str(kwargs.get("status", "new")),
             provider=kwargs["provider"],
             order_id=kwargs.get("order_id", ""),
