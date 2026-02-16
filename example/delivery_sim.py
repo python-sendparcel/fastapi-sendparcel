@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 from sendparcel.fsm import STATUS_TO_CALLBACK
 from sendparcel.provider import BaseProvider
@@ -38,6 +38,7 @@ class DeliverySimProvider(BaseProvider):
     display_name: ClassVar[str] = "Symulator dostawy"
     supported_countries: ClassVar[list[str]] = ["PL"]
     supported_services: ClassVar[list[str]] = ["standard"]
+    user_selectable: ClassVar[bool] = False
 
     def _base_url(self) -> str:
         return self.get_setting("simulator_base_url", "http://localhost:8000")
@@ -104,6 +105,55 @@ class DeliverySimProvider(BaseProvider):
         return True
 
 
+def _pdf_escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _build_label_pdf(text: str) -> bytes:
+    """Generate a minimal valid PDF with the given text."""
+    stream = (f"BT /F1 14 Tf 72 760 Td ({_pdf_escape(text)}) Tj ET").encode()
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            b"<< /Type /Page /Parent 2 0 R "
+            b"/MediaBox [0 0 595 842] "
+            b"/Resources << /Font << /F1 5 0 R >> >> "
+            b"/Contents 4 0 R >>"
+        ),
+        (
+            b"<< /Length "
+            + str(len(stream)).encode("ascii")
+            + b" >>\nstream\n"
+            + stream
+            + b"\nendstream"
+        ),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets: list[int] = []
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{index} 0 obj\n".encode("ascii"))
+        pdf.extend(obj)
+        pdf.extend(b"\nendobj\n")
+
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    pdf.extend(b"0000000000 65535 f \n")
+    for off in offsets:
+        pdf.extend(f"{off:010} 00000 n \n".encode("ascii"))
+    pdf.extend(
+        (
+            f"trailer\n<< /Size {len(objects) + 1} "
+            f"/Root 1 0 R >>\n"
+            f"startxref\n{xref_offset}\n%%EOF\n"
+        ).encode("ascii")
+    )
+    return bytes(pdf)
+
+
 # --- Simulator API endpoints ---
 
 sim_router = APIRouter(prefix="/delivery-sim", tags=["delivery-sim"])
@@ -139,12 +189,20 @@ async def sim_get_status(ext_id: str) -> SimStatusResponse:
 
 
 @sim_router.get("/label/{ext_id}")
-async def sim_get_label(ext_id: str) -> dict[str, str]:
-    """Return a fake label URL for a simulated shipment."""
+async def sim_get_label(ext_id: str) -> Response:
+    """Return a generated PDF label for a simulated shipment."""
     entry = _sim_shipments.get(ext_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Nieznana przesyłka")
-    return {"label_url": entry.get("label_url", "")}
+    label_text = f"Etykieta przesylki {ext_id}"
+    pdf_bytes = _build_label_pdf(label_text)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="label-{ext_id}.pdf"'
+        },
+    )
 
 
 @sim_router.post("/advance/{ext_id}", response_model=SimAdvanceResponse)
