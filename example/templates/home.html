@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Zamówienia{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <h2 class="page-title">Zamówienia</h2>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">
+    <h3 class="card-title">Nowe zamówienie</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" action="/orders">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Opis</label>
+          <input class="form-control" type="text" name="description"
+                 placeholder="np. Paczka z książkami" required />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Waga (kg)</label>
+          <input class="form-control" type="number" name="total_weight"
+                 min="0.1" step="0.1" value="1.0" required />
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-4">
+          <label class="form-label">Nadawca — imię i nazwisko</label>
+          <input class="form-control" type="text" name="sender_name" required />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Nadawca — e-mail</label>
+          <input class="form-control" type="email" name="sender_email" required />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Nadawca — telefon</label>
+          <input class="form-control" type="text" name="sender_phone" />
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <label class="form-label">Nadawca — adres</label>
+          <input class="form-control" type="text" name="sender_line1"
+                 placeholder="ul. Przykładowa 1" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Miasto</label>
+          <input class="form-control" type="text" name="sender_city" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Kod pocztowy</label>
+          <input class="form-control" type="text" name="sender_postal_code" />
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-4">
+          <label class="form-label">Odbiorca — imię i nazwisko</label>
+          <input class="form-control" type="text" name="recipient_name" required />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Odbiorca — e-mail</label>
+          <input class="form-control" type="email" name="recipient_email" required />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Odbiorca — telefon</label>
+          <input class="form-control" type="text" name="recipient_phone" />
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <label class="form-label">Odbiorca — adres</label>
+          <input class="form-control" type="text" name="recipient_line1"
+                 placeholder="ul. Docelowa 5" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Miasto</label>
+          <input class="form-control" type="text" name="recipient_city" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Kod pocztowy</label>
+          <input class="form-control" type="text" name="recipient_postal_code" />
+        </div>
+      </div>
+      <div class="mt-3">
+        <button class="btn btn-primary" type="submit">Utwórz zamówienie</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if orders %}
+<div class="card mt-3">
+  <div class="card-header">
+    <h3 class="card-title">Lista zamówień</h3>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Opis</th>
+          <th>Waga</th>
+          <th>Odbiorca</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+        <tr>
+          <td>{{ order.id }}</td>
+          <td>{{ order.description }}</td>
+          <td>{{ order.total_weight }} kg</td>
+          <td>{{ order.recipient_name }}</td>
+          <td>
+            <a class="btn btn-sm btn-outline-primary"
+               href="/orders/{{ order.id }}">Szczegóły</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

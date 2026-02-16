@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Przesyłka utworzona{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <h2 class="page-title">Przesyłka utworzona</h2>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-body">
+    <div class="alert alert-success">
+      Przesyłka <strong>{{ shipment.id }}</strong> została zarejestrowana
+      u dostawcy <strong>{{ shipment.provider }}</strong>.
+    </div>
+    <div class="datagrid">
+      <div class="datagrid-item">
+        <div class="datagrid-title">ID zewnętrzne</div>
+        <div class="datagrid-content">{{ shipment.external_id }}</div>
+      </div>
+      <div class="datagrid-item">
+        <div class="datagrid-title">Numer śledzenia</div>
+        <div class="datagrid-content">{{ shipment.tracking_number }}</div>
+      </div>
+    </div>
+    <div class="mt-3">
+      <a class="btn btn-primary"
+         href="/shipments/{{ shipment.id }}">
+        Przejdź do śledzenia przesyłki
+      </a>
+      <a class="btn btn-outline-secondary" href="/">
+        Powrót do zamówień
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
