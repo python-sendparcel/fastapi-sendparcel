@@ -1,5 +1,6 @@
 """Protocol conformance tests."""
 
+from conftest import RetryStore
 from fastapi_sendparcel.protocols import CallbackRetryStore
 
 
@@ -53,3 +54,7 @@ def test_protocol_has_five_methods() -> None:
         assert hasattr(CallbackRetryStore, method_name), (
             f"CallbackRetryStore missing method {method_name}"
         )
+
+
+def test_mock_satisfies_retry_store() -> None:
+    assert isinstance(RetryStore(), CallbackRetryStore)

@@ -1,5 +1,8 @@
 """Configuration tests."""
 
+import pytest
+from pydantic import ValidationError
+
 from fastapi_sendparcel.config import SendparcelConfig
 
 
@@ -36,3 +39,13 @@ def test_custom_retry_settings() -> None:
     assert config.retry_max_attempts == 3
     assert config.retry_backoff_seconds == 30
     assert config.retry_enabled is False
+
+
+def test_default_provider_required() -> None:
+    with pytest.raises(ValidationError):
+        SendparcelConfig()
+
+
+def test_retry_enabled_default() -> None:
+    config = SendparcelConfig(default_provider="test")
+    assert config.retry_enabled is True
