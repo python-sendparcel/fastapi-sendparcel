@@ -178,3 +178,95 @@ def test_full_shipment_flow(example_app) -> None:
         assert detail_resp.status_code == 200
         assert "Przesyłka" in detail_resp.text
         assert "delivery-sim" in detail_resp.text
+
+
+def _create_order_and_ship(client: TestClient) -> str:
+    """Create an order, ship it, and return the ext_id from sim state.
+
+    Helper used by multiple E2E tests.
+    """
+    from delivery_sim import _sim_shipments
+
+    resp = client.post(
+        "/orders",
+        data={
+            "description": "Paczka do testu etykiety",
+            "total_weight": "2.0",
+            "sender_name": "Nadawca Testowy",
+            "sender_email": "sender@example.com",
+            "recipient_name": "Odbiorca Testowy",
+            "recipient_email": "recipient@example.com",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    ship_resp = client.post(
+        "/orders/1/ship",
+        data={"provider": "delivery-sim"},
+    )
+    assert ship_resp.status_code == 200
+    assert "Przesyłka utworzona" in ship_resp.text
+
+    # Get the ext_id from the in-memory simulator state
+    assert len(_sim_shipments) == 1
+    ext_id = next(iter(_sim_shipments))
+    return ext_id
+
+
+def test_full_flow_with_label_pdf_download(example_app) -> None:
+    """Full E2E: create order, ship, download label PDF, verify content."""
+    with TestClient(example_app.app) as client:
+        ext_id = _create_order_and_ship(client)
+
+        # Download the label PDF
+        label_resp = client.get(f"/delivery-sim/label/{ext_id}")
+        assert label_resp.status_code == 200
+        assert label_resp.headers["content-type"] == "application/pdf"
+
+        pdf_bytes = label_resp.content
+        assert pdf_bytes.startswith(b"%PDF-1.4")
+        assert b"%%EOF" in pdf_bytes
+
+
+def test_label_pdf_has_correct_content_type(example_app) -> None:
+    """Label download returns correct Content-Type and Content-Disposition."""
+    with TestClient(example_app.app) as client:
+        ext_id = _create_order_and_ship(client)
+
+        label_resp = client.get(f"/delivery-sim/label/{ext_id}")
+        assert label_resp.status_code == 200
+        assert label_resp.headers["content-type"] == "application/pdf"
+
+        content_disposition = label_resp.headers["content-disposition"]
+        assert "filename=" in content_disposition
+        assert ext_id in content_disposition
+
+
+def test_shipment_detail_shows_tracking_info(example_app) -> None:
+    """Shipment detail page shows tracking number, provider, and status."""
+    from delivery_sim import _sim_shipments
+
+    with TestClient(example_app.app) as client:
+        ext_id = _create_order_and_ship(client)
+
+        entry = _sim_shipments[ext_id]
+        tracking_number = entry["tracking_number"]
+
+        # Extract shipment ID from the ship response page
+        ship_resp = client.get("/")  # navigate away first
+        # Re-ship won't work; find shipment via sim state
+        shipment_id = entry["shipment_id"]
+
+        detail_resp = client.get(f"/shipments/{shipment_id}")
+        assert detail_resp.status_code == 200
+
+        # Verify tracking number (SIM-...)
+        assert tracking_number in detail_resp.text
+        assert tracking_number.startswith("SIM-")
+
+        # Verify provider name
+        assert "delivery-sim" in detail_resp.text
+
+        # Verify status is displayed
+        assert "label_ready" in detail_resp.text
