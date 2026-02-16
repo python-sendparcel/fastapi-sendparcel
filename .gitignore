@@ -22,6 +22,10 @@ build/
 dist/
 *.egg-info/
 
+# Sphinx docs
+docs/_build/
+docs/apidocs/
+
 # IDE
 .vscode/
 .idea/
