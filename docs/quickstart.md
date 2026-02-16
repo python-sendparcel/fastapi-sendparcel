@@ -4,21 +4,17 @@
 
 Install `fastapi-sendparcel` with your preferred package manager:
 
-::::{tab-set}
+**Using uv:**
 
-:::{tab-item} uv
 ```bash
 uv add fastapi-sendparcel
 ```
-:::
 
-:::{tab-item} pip
+**Using pip:**
+
 ```bash
 pip install fastapi-sendparcel
 ```
-:::
-
-::::
 
 For SQLAlchemy support (recommended):
 

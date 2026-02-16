@@ -2,20 +2,11 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-
-from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
 
 from delivery_sim import (
     STATUS_PROGRESSION,
@@ -23,20 +14,30 @@ from delivery_sim import (
     _sim_shipments,
     sim_router,
 )
+from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from models import OrderModel
+from sendparcel.flow import ShipmentFlow
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
 from fastapi_sendparcel import (
     FastAPIPluginRegistry,
     SendparcelConfig,
     create_shipping_router,
 )
-from fastapi_sendparcel.contrib.sqlalchemy.models import Base, ShipmentModel
+from fastapi_sendparcel.contrib.sqlalchemy.models import Base
 from fastapi_sendparcel.contrib.sqlalchemy.repository import (
     SQLAlchemyShipmentRepository,
 )
 from fastapi_sendparcel.contrib.sqlalchemy.retry_store import (
     SQLAlchemyRetryStore,
 )
-from models import OrderModel
-from sendparcel.flow import ShipmentFlow
 
 # --- Database setup ---
 
@@ -265,14 +266,12 @@ async def advance_delivery(request: Request, ext_id: str) -> HTMLResponse:
     flow = ShipmentFlow(repository=repository, config=config.providers)
     shipment = await repository.get_by_id(shipment_id)
 
-    try:
+    with contextlib.suppress(Exception):
         shipment = await flow.handle_callback(
             shipment,
             {"status": new_status},
             {},
         )
-    except Exception:
-        pass  # Callback handling is best-effort in the sim
 
     return HTMLResponse(
         f'<div class="alert alert-success">'

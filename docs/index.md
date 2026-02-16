@@ -9,4 +9,5 @@ FastAPI adapter for the python-sendparcel ecosystem.
 quickstart
 configuration
 api
+apidocs/index
 ```

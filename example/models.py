@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from sendparcel.types import AddressInfo, ParcelInfo
 from sqlalchemy import Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from fastapi_sendparcel.contrib.sqlalchemy.models import Base
-from sendparcel.types import AddressInfo, ParcelInfo
 
 
 class OrderModel(Base):

@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class SendparcelConfig(BaseSettings):
     """Runtime config for FastAPI adapter.
 
-    Reads from environment variables with SENDPARCEL_ prefix.
+    Reads from environment variables with ``SENDPARCEL_`` prefix.
     """
 
     model_config = SettingsConfigDict(env_prefix="SENDPARCEL_")
