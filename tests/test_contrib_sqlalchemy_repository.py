@@ -1,52 +1,84 @@
 """SQLAlchemy repository integration tests with real aiosqlite DB."""
 
 import pytest
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-from fastapi_sendparcel.contrib.sqlalchemy.models import Base
-from fastapi_sendparcel.contrib.sqlalchemy.repository import (
-    SQLAlchemyShipmentRepository,
-)
+from sqlalchemy.exc import NoResultFound
 
 
-@pytest.fixture()
-async def session_factory():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    yield factory
-    await engine.dispose()
+class TestSQLAlchemyShipmentRepository:
+    async def test_create(self, sqlalchemy_repository) -> None:
+        shipment = await sqlalchemy_repository.create(
+            id="s-1",
+            provider="dummy",
+            status="new",
+        )
+        assert shipment.id == "s-1"
+        assert shipment.provider == "dummy"
+        assert shipment.status == "new"
 
+    async def test_get_by_id(self, sqlalchemy_repository) -> None:
+        created = await sqlalchemy_repository.create(
+            id="s-2",
+            provider="dummy",
+            status="new",
+        )
+        fetched = await sqlalchemy_repository.get_by_id("s-2")
+        assert fetched.id == created.id
+        assert fetched.provider == "dummy"
 
-@pytest.fixture()
-def repository(session_factory) -> SQLAlchemyShipmentRepository:
-    return SQLAlchemyShipmentRepository(session_factory)
+    async def test_get_by_id_not_found(self, sqlalchemy_repository) -> None:
+        with pytest.raises(NoResultFound):
+            await sqlalchemy_repository.get_by_id("nonexistent")
 
+    async def test_save(self, sqlalchemy_repository) -> None:
+        shipment = await sqlalchemy_repository.create(
+            id="s-3",
+            provider="dummy",
+            status="new",
+        )
+        shipment.external_id = "ext-updated"
+        saved = await sqlalchemy_repository.save(shipment)
+        assert saved.external_id == "ext-updated"
+        fetched = await sqlalchemy_repository.get_by_id("s-3")
+        assert fetched.external_id == "ext-updated"
 
-async def test_list_by_order_returns_matching_shipments(
-    repository,
-) -> None:
-    await repository.create(id="s-1", provider="dummy", order_id="order-A")
-    await repository.create(id="s-2", provider="dummy", order_id="order-A")
-    await repository.create(id="s-3", provider="dummy", order_id="order-B")
+    async def test_update_status(self, sqlalchemy_repository) -> None:
+        await sqlalchemy_repository.create(
+            id="s-4",
+            provider="dummy",
+            status="new",
+        )
+        updated = await sqlalchemy_repository.update_status(
+            "s-4",
+            "created",
+            external_id="ext-4",
+        )
+        assert updated.status == "created"
+        assert updated.external_id == "ext-4"
 
-    results = await repository.list_by_order("order-A")
-    assert len(results) == 2
-    assert {r.id for r in results} == {"s-1", "s-2"}
+    async def test_list_by_order(self, sqlalchemy_repository) -> None:
+        await sqlalchemy_repository.create(
+            id="s-5",
+            provider="dummy",
+            status="new",
+            order_id="order-A",
+        )
+        await sqlalchemy_repository.create(
+            id="s-6",
+            provider="dummy",
+            status="new",
+            order_id="order-A",
+        )
+        await sqlalchemy_repository.create(
+            id="s-7",
+            provider="dummy",
+            status="new",
+            order_id="order-B",
+        )
+        results = await sqlalchemy_repository.list_by_order("order-A")
+        assert len(results) == 2
+        ids = {s.id for s in results}
+        assert ids == {"s-5", "s-6"}
 
-
-async def test_list_by_order_empty(repository) -> None:
-    results = await repository.list_by_order("nonexistent")
-    assert results == []
-
-
-async def test_create_and_get_by_id(repository) -> None:
-    created = await repository.create(
-        id="s-1", provider="dummy", order_id="order-1"
-    )
-    assert created.id == "s-1"
-
-    fetched = await repository.get_by_id("s-1")
-    assert fetched.id == "s-1"
-    assert fetched.provider == "dummy"
+    async def test_list_by_order_empty(self, sqlalchemy_repository) -> None:
+        results = await sqlalchemy_repository.list_by_order("nonexistent")
+        assert results == []
