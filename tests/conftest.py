@@ -71,6 +71,13 @@ class InMemoryRepo:
             setattr(shipment, key, value)
         return shipment
 
+    async def list_by_order(self, order_id: str) -> list[DemoShipment]:
+        return [
+            s
+            for s in self.items.values()
+            if hasattr(s.order, "id") and s.order.id == order_id
+        ]
+
 
 class OrderResolver:
     async def resolve(self, order_id: str) -> DemoOrder:
@@ -132,3 +139,51 @@ def resolver() -> OrderResolver:
 @pytest.fixture()
 def retry_store() -> RetryStore:
     return RetryStore()
+
+
+@pytest.fixture()
+async def async_engine():
+    """Create an in-memory aiosqlite async engine."""
+    sa = pytest.importorskip("sqlalchemy")  # noqa: F841
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from fastapi_sendparcel.contrib.sqlalchemy.models import Base
+
+    engine = create_async_engine("sqlite+aiosqlite://", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+
+@pytest.fixture()
+async def async_session_factory(async_engine):
+    """Create an async session factory bound to the in-memory engine."""
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    factory = async_sessionmaker(
+        async_engine, class_=AsyncSession, expire_on_commit=False
+    )
+    yield factory
+
+
+@pytest.fixture()
+def sqlalchemy_repository(async_session_factory):
+    """Create an SQLAlchemyShipmentRepository."""
+    from fastapi_sendparcel.contrib.sqlalchemy.repository import (
+        SQLAlchemyShipmentRepository,
+    )
+
+    return SQLAlchemyShipmentRepository(async_session_factory)
+
+
+@pytest.fixture()
+def sqlalchemy_retry_store(async_session_factory):
+    """Create an SQLAlchemyRetryStore."""
+    from fastapi_sendparcel.contrib.sqlalchemy.retry_store import (
+        SQLAlchemyRetryStore,
+    )
+
+    return SQLAlchemyRetryStore(async_session_factory)
