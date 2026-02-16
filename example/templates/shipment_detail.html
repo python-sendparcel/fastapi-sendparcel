@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Przesyłka {{ shipment.id }}{% endblock %}
+{% block title %}Shipment {{ shipment.id }}{% endblock %}
 
 {% block content %}
 <div class="page-header d-print-none">
   <div class="row align-items-center">
     <div class="col-auto">
-      <a href="/" class="btn btn-outline-secondary btn-sm mb-2">← Powrót</a>
-      <h2 class="page-title">Przesyłka {{ shipment.id }}</h2>
+      <a href="/" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back</a>
+      <h2 class="page-title">Shipment {{ shipment.id }}</h2>
     </div>
   </div>
 </div>
 
 <div class="card mt-3" id="shipment-card">
   <div class="card-header">
-    <h3 class="card-title">Stan przesyłki</h3>
+    <h3 class="card-title">Shipment status</h3>
   </div>
   <div class="card-body">
     <div class="datagrid">
@@ -32,24 +32,24 @@
         </div>
       </div>
       <div class="datagrid-item">
-        <div class="datagrid-title">Dostawca</div>
+        <div class="datagrid-title">Provider</div>
         <div class="datagrid-content">{{ shipment.provider }}</div>
       </div>
       <div class="datagrid-item">
-        <div class="datagrid-title">ID zewnętrzne</div>
+        <div class="datagrid-title">External ID</div>
         <div class="datagrid-content">{{ shipment.external_id }}</div>
       </div>
       <div class="datagrid-item">
-        <div class="datagrid-title">Numer śledzenia</div>
+        <div class="datagrid-title">Tracking number</div>
         <div class="datagrid-content">{{ shipment.tracking_number }}</div>
       </div>
       <div class="datagrid-item">
-        <div class="datagrid-title">Etykieta</div>
+        <div class="datagrid-title">Label</div>
         <div class="datagrid-content">
           {% if shipment.label_url %}
-          <a href="{{ shipment.label_url }}" target="_blank">Pobierz etykietę</a>
+          <a href="{{ shipment.label_url }}" target="_blank">Download label</a>
           {% else %}
-          <span class="text-muted">Brak</span>
+          <span class="text-muted">None</span>
           {% endif %}
         </div>
       </div>
@@ -60,19 +60,19 @@
 {% if shipment.status not in ('delivered', 'cancelled', 'failed', 'returned') %}
 <div class="card mt-3">
   <div class="card-header">
-    <h3 class="card-title">Symulator dostawy</h3>
+    <h3 class="card-title">Delivery simulator</h3>
   </div>
   <div class="card-body">
     <p class="text-muted">
-      Kliknij przycisk, aby przejść do następnego etapu dostawy.
-      Symulator wyśle callback HTTP do aplikacji.
+      Click the button to advance to the next delivery stage.
+      The simulator will send an HTTP callback to the application.
     </p>
     <div id="sim-result"></div>
     <form hx-post="/sim/advance/{{ shipment.external_id }}"
           hx-target="#sim-result"
           hx-swap="innerHTML">
       <button class="btn btn-warning" type="submit">
-        Następny etap dostawy
+        Next delivery stage
       </button>
     </form>
     <div class="mt-2">
@@ -80,7 +80,7 @@
          hx-get="/shipments/{{ shipment.id }}"
          hx-target="body"
          hx-push-url="true">
-        Odśwież status
+        Refresh status
       </a>
     </div>
   </div>

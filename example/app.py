@@ -79,7 +79,7 @@ class ExampleOrderResolver:
             )
             order = result.scalar_one_or_none()
             if order is None:
-                raise ValueError(f"Zamówienie o ID {order_id} nie istnieje")
+                raise ValueError(f"Order with ID {order_id} does not exist")
             return order
 
 
@@ -120,7 +120,7 @@ app.include_router(sim_router)
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
-    """Lista zamówień."""
+    """List orders."""
     async with async_session() as session:
         result = await session.execute(
             select(OrderModel).order_by(OrderModel.id.desc())
@@ -147,7 +147,7 @@ async def create_order(
     recipient_city: str = Form(""),
     recipient_postal_code: str = Form(""),
 ) -> RedirectResponse:
-    """Utwórz nowe zamówienie i przekieruj do jego szczegółów."""
+    """Create a new order and redirect to its details."""
     try:
         weight = Decimal(total_weight)
     except (InvalidOperation, ValueError):
@@ -178,14 +178,14 @@ async def create_order(
 
 @app.get("/orders/{order_id}", response_class=HTMLResponse)
 async def order_detail(request: Request, order_id: int) -> HTMLResponse:
-    """Szczegóły zamówienia z formularzem nadania przesyłki."""
+    """Order details with shipment creation form."""
     async with async_session() as session:
         result = await session.execute(
             select(OrderModel).where(OrderModel.id == order_id)
         )
         order = result.scalar_one_or_none()
     if order is None:
-        raise HTTPException(status_code=404, detail="Zamówienie nie znalezione")
+        raise HTTPException(status_code=404, detail="Order not found")
 
     providers = plugin_registry.get_choices()
     return templates.TemplateResponse(
@@ -201,14 +201,14 @@ async def create_shipment_for_order(
     order_id: int,
     provider: str = Form(...),
 ) -> HTMLResponse:
-    """Utwórz przesyłkę dla zamówienia przez ShipmentFlow."""
+    """Create a shipment for an order via ShipmentFlow."""
     async with async_session() as session:
         result = await session.execute(
             select(OrderModel).where(OrderModel.id == order_id)
         )
         order = result.scalar_one_or_none()
     if order is None:
-        raise HTTPException(status_code=404, detail="Zamówienie nie znalezione")
+        raise HTTPException(status_code=404, detail="Order not found")
 
     flow = ShipmentFlow(repository=repository, config=config.providers)
     shipment = await flow.create_shipment(order, provider)
@@ -223,7 +223,7 @@ async def create_shipment_for_order(
 
 @app.get("/shipments/{shipment_id}", response_class=HTMLResponse)
 async def shipment_detail(request: Request, shipment_id: str) -> HTMLResponse:
-    """Szczegóły przesyłki ze śledzeniem."""
+    """Shipment details with tracking."""
     shipment = await repository.get_by_id(shipment_id)
     return templates.TemplateResponse(
         request,
@@ -239,7 +239,7 @@ async def advance_delivery(request: Request, ext_id: str) -> HTMLResponse:
     if entry is None:
         return HTMLResponse(
             '<div class="alert alert-danger">'
-            "Nieznana przesyłka w symulatorze</div>",
+            "Unknown shipment in simulator</div>",
             status_code=404,
         )
 
@@ -247,14 +247,14 @@ async def advance_delivery(request: Request, ext_id: str) -> HTMLResponse:
     if current not in STATUS_PROGRESSION:
         return HTMLResponse(
             f'<div class="alert alert-warning">'
-            f"Nie można przejść dalej ze statusu: {current}</div>",
+            f"Cannot advance from status: {current}</div>",
         )
 
     current_idx = STATUS_PROGRESSION.index(current)
     if current_idx >= len(STATUS_PROGRESSION) - 1:
         return HTMLResponse(
             '<div class="alert alert-info">'
-            "Przesyłka jest już w stanie końcowym</div>",
+            "Shipment is already in a terminal state</div>",
         )
 
     new_status = STATUS_PROGRESSION[current_idx + 1]
@@ -275,6 +275,6 @@ async def advance_delivery(request: Request, ext_id: str) -> HTMLResponse:
 
     return HTMLResponse(
         f'<div class="alert alert-success">'
-        f"Status zmieniony: <strong>{previous}</strong> → "
+        f"Status changed: <strong>{previous}</strong> → "
         f"<strong>{new_status}</strong></div>",
     )

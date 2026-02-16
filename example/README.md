@@ -1,8 +1,8 @@
-# fastapi-sendparcel — przykładowa aplikacja
+# fastapi-sendparcel — example application
 
-Demonstracja użycia `fastapi-sendparcel` z Tabler UI, HTMX i SQLAlchemy.
+Demonstration of using `fastapi-sendparcel` with Tabler UI, HTMX, and SQLAlchemy.
 
-## Uruchomienie
+## Running
 
 ```bash
 cd example
@@ -10,11 +10,11 @@ uv sync
 uv run uvicorn app:app --reload
 ```
 
-Otwórz http://localhost:8000 w przeglądarce.
+Open http://localhost:8000 in your browser.
 
-## Struktura
+## Structure
 
-- `app.py` — główna aplikacja FastAPI z widokami HTML
-- `models.py` — model zamówienia (SQLAlchemy) implementujący protokół `Order`
-- `delivery_sim.py` — symulator dostawcy przesyłek z endpointami HTTP
-- `templates/` — szablony Jinja2 z Tabler CSS i HTMX
+- `app.py` — main FastAPI application with HTML views
+- `models.py` — order model (SQLAlchemy) implementing the `Order` protocol
+- `delivery_sim.py` — shipment delivery provider simulator with HTTP endpoints
+- `templates/` — Jinja2 templates with Tabler CSS and HTMX

@@ -1,33 +1,33 @@
 {% extends "base.html" %}
 
-{% block title %}Zamówienie #{{ order.id }}{% endblock %}
+{% block title %}Order #{{ order.id }}{% endblock %}
 
 {% block content %}
 <div class="page-header d-print-none">
   <div class="row align-items-center">
     <div class="col-auto">
-      <a href="/" class="btn btn-outline-secondary btn-sm mb-2">← Powrót</a>
-      <h2 class="page-title">Zamówienie #{{ order.id }}</h2>
+      <a href="/" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back</a>
+      <h2 class="page-title">Order #{{ order.id }}</h2>
     </div>
   </div>
 </div>
 
 <div class="card mt-3">
   <div class="card-header">
-    <h3 class="card-title">Dane zamówienia</h3>
+    <h3 class="card-title">Order details</h3>
   </div>
   <div class="card-body">
     <div class="datagrid">
       <div class="datagrid-item">
-        <div class="datagrid-title">Opis</div>
+        <div class="datagrid-title">Description</div>
         <div class="datagrid-content">{{ order.description }}</div>
       </div>
       <div class="datagrid-item">
-        <div class="datagrid-title">Waga</div>
+        <div class="datagrid-title">Weight</div>
         <div class="datagrid-content">{{ order.total_weight }} kg</div>
       </div>
       <div class="datagrid-item">
-        <div class="datagrid-title">Nadawca</div>
+        <div class="datagrid-title">Sender</div>
         <div class="datagrid-content">
           {{ order.sender_name }}<br />
           {{ order.sender_line1 }}, {{ order.sender_city }}
@@ -35,7 +35,7 @@
         </div>
       </div>
       <div class="datagrid-item">
-        <div class="datagrid-title">Odbiorca</div>
+        <div class="datagrid-title">Recipient</div>
         <div class="datagrid-content">
           {{ order.recipient_name }}<br />
           {{ order.recipient_line1 }}, {{ order.recipient_city }}
@@ -48,13 +48,13 @@
 
 <div class="card mt-3">
   <div class="card-header">
-    <h3 class="card-title">Utwórz przesyłkę</h3>
+    <h3 class="card-title">Create shipment</h3>
   </div>
   <div class="card-body">
     <form method="post" action="/orders/{{ order.id }}/ship">
       <div class="row g-3">
         <div class="col-md-6">
-          <label class="form-label">Dostawca</label>
+          <label class="form-label">Provider</label>
           <select class="form-select" name="provider" required>
             {% for slug, name in providers %}
             <option value="{{ slug }}">{{ name }}</option>
@@ -63,7 +63,7 @@
         </div>
       </div>
       <div class="mt-3">
-        <button class="btn btn-primary" type="submit">Nadaj przesyłkę</button>
+        <button class="btn btn-primary" type="submit">Create shipment</button>
       </div>
     </form>
   </div>

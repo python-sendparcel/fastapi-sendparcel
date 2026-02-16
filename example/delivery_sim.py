@@ -35,7 +35,7 @@ class DeliverySimProvider(BaseProvider):
     """Provider that delegates to the local delivery simulator endpoints."""
 
     slug: ClassVar[str] = "delivery-sim"
-    display_name: ClassVar[str] = "Symulator dostawy"
+    display_name: ClassVar[str] = "Delivery Simulator"
     supported_countries: ClassVar[list[str]] = ["PL"]
     supported_services: ClassVar[list[str]] = ["standard"]
     user_selectable: ClassVar[bool] = False
@@ -181,7 +181,7 @@ async def sim_get_status(ext_id: str) -> SimStatusResponse:
     """Return current status of a simulated shipment."""
     entry = _sim_shipments.get(ext_id)
     if entry is None:
-        raise HTTPException(status_code=404, detail="Nieznana przesyłka")
+        raise HTTPException(status_code=404, detail="Unknown shipment")
     return SimStatusResponse(
         external_id=ext_id,
         status=entry["status"],
@@ -193,8 +193,8 @@ async def sim_get_label(ext_id: str) -> Response:
     """Return a generated PDF label for a simulated shipment."""
     entry = _sim_shipments.get(ext_id)
     if entry is None:
-        raise HTTPException(status_code=404, detail="Nieznana przesyłka")
-    label_text = f"Etykieta przesylki {ext_id}"
+        raise HTTPException(status_code=404, detail="Unknown shipment")
+    label_text = f"Shipment label {ext_id}"
     pdf_bytes = _build_label_pdf(label_text)
     return Response(
         content=pdf_bytes,
@@ -210,20 +210,20 @@ async def sim_advance_status(ext_id: str) -> SimAdvanceResponse:
     """Advance shipment to next status and send callback to the main app."""
     entry = _sim_shipments.get(ext_id)
     if entry is None:
-        raise HTTPException(status_code=404, detail="Nieznana przesyłka")
+        raise HTTPException(status_code=404, detail="Unknown shipment")
 
     current = entry["status"]
     if current not in STATUS_PROGRESSION:
         raise HTTPException(
             status_code=400,
-            detail=f"Nie można przejść dalej ze statusu: {current}",
+            detail=f"Cannot advance from status: {current}",
         )
 
     current_idx = STATUS_PROGRESSION.index(current)
     if current_idx >= len(STATUS_PROGRESSION) - 1:
         raise HTTPException(
             status_code=400,
-            detail="Przesyłka jest już w stanie końcowym",
+            detail="Shipment is already in a terminal state",
         )
 
     new_status = STATUS_PROGRESSION[current_idx + 1]

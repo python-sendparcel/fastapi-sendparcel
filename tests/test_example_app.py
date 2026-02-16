@@ -108,7 +108,7 @@ def test_home_page_loads(example_app) -> None:
         resp = client.get("/")
         assert resp.status_code == 200
         assert "tabler" in resp.text.lower()
-        assert "Zamówienia" in resp.text
+        assert "Orders" in resp.text
         assert 'name="description"' in resp.text
 
 
@@ -118,28 +118,28 @@ def test_create_order_and_view_detail(example_app) -> None:
         resp = client.post(
             "/orders",
             data={
-                "description": "Testowa paczka",
+                "description": "Test package",
                 "total_weight": "2.5",
-                "sender_name": "Jan Kowalski",
+                "sender_name": "John Smith",
                 "sender_email": "jan@example.com",
                 "sender_phone": "+48111222333",
-                "sender_line1": "ul. Testowa 1",
-                "sender_city": "Warszawa",
+                "sender_line1": "1 Test St",
+                "sender_city": "Warsaw",
                 "sender_postal_code": "00-001",
-                "recipient_name": "Anna Nowak",
+                "recipient_name": "Jane Doe",
                 "recipient_email": "anna@example.com",
                 "recipient_phone": "+48444555666",
-                "recipient_line1": "ul. Docelowa 5",
-                "recipient_city": "Kraków",
+                "recipient_line1": "5 Destination St",
+                "recipient_city": "Krakow",
                 "recipient_postal_code": "30-001",
             },
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert "Testowa paczka" in resp.text
-        assert "Jan Kowalski" in resp.text
-        assert "Anna Nowak" in resp.text
-        assert "Nadaj przesyłkę" in resp.text
+        assert "Test package" in resp.text
+        assert "John Smith" in resp.text
+        assert "Jane Doe" in resp.text
+        assert "Create shipment" in resp.text
 
 
 def test_full_shipment_flow(example_app) -> None:
@@ -149,11 +149,11 @@ def test_full_shipment_flow(example_app) -> None:
         resp = client.post(
             "/orders",
             data={
-                "description": "Paczka testowa",
+                "description": "Test package",
                 "total_weight": "1.0",
-                "sender_name": "Nadawca",
+                "sender_name": "Sender",
                 "sender_email": "sender@example.com",
-                "recipient_name": "Odbiorca",
+                "recipient_name": "Recipient",
                 "recipient_email": "recipient@example.com",
             },
             follow_redirects=True,
@@ -166,7 +166,7 @@ def test_full_shipment_flow(example_app) -> None:
             data={"provider": "delivery-sim"},
         )
         assert ship_resp.status_code == 200
-        assert "Przesyłka utworzona" in ship_resp.text
+        assert "Shipment created" in ship_resp.text
         assert "delivery-sim" in ship_resp.text
 
         # Extract shipment ID and view shipment detail
@@ -176,7 +176,7 @@ def test_full_shipment_flow(example_app) -> None:
 
         detail_resp = client.get(f"/shipments/{shipment_id}")
         assert detail_resp.status_code == 200
-        assert "Przesyłka" in detail_resp.text
+        assert "Shipment" in detail_resp.text
         assert "delivery-sim" in detail_resp.text
 
 
@@ -190,11 +190,11 @@ def _create_order_and_ship(client: TestClient) -> str:
     resp = client.post(
         "/orders",
         data={
-            "description": "Paczka do testu etykiety",
+            "description": "Label test package",
             "total_weight": "2.0",
-            "sender_name": "Nadawca Testowy",
+            "sender_name": "Test Sender",
             "sender_email": "sender@example.com",
-            "recipient_name": "Odbiorca Testowy",
+            "recipient_name": "Test Recipient",
             "recipient_email": "recipient@example.com",
         },
         follow_redirects=True,
@@ -206,7 +206,7 @@ def _create_order_and_ship(client: TestClient) -> str:
         data={"provider": "delivery-sim"},
     )
     assert ship_resp.status_code == 200
-    assert "Przesyłka utworzona" in ship_resp.text
+    assert "Shipment created" in ship_resp.text
 
     # Get the ext_id from the in-memory simulator state
     assert len(_sim_shipments) == 1

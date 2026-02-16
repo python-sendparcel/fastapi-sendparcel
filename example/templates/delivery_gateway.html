@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Przesyłka utworzona{% endblock %}
+{% block title %}Shipment created{% endblock %}
 
 {% block content %}
 <div class="page-header d-print-none">
   <div class="row align-items-center">
     <div class="col-auto">
-      <h2 class="page-title">Przesyłka utworzona</h2>
+      <h2 class="page-title">Shipment created</h2>
     </div>
   </div>
 </div>
@@ -14,26 +14,26 @@
 <div class="card mt-3">
   <div class="card-body">
     <div class="alert alert-success">
-      Przesyłka <strong>{{ shipment.id }}</strong> została zarejestrowana
-      u dostawcy <strong>{{ shipment.provider }}</strong>.
+      Shipment <strong>{{ shipment.id }}</strong> has been registered
+      with provider <strong>{{ shipment.provider }}</strong>.
     </div>
     <div class="datagrid">
       <div class="datagrid-item">
-        <div class="datagrid-title">ID zewnętrzne</div>
+        <div class="datagrid-title">External ID</div>
         <div class="datagrid-content">{{ shipment.external_id }}</div>
       </div>
       <div class="datagrid-item">
-        <div class="datagrid-title">Numer śledzenia</div>
+        <div class="datagrid-title">Tracking number</div>
         <div class="datagrid-content">{{ shipment.tracking_number }}</div>
       </div>
     </div>
     <div class="mt-3">
       <a class="btn btn-primary"
          href="/shipments/{{ shipment.id }}">
-        Przejdź do śledzenia przesyłki
+        Go to shipment tracking
       </a>
       <a class="btn btn-outline-secondary" href="/">
-        Powrót do zamówień
+        Back to orders
       </a>
     </div>
   </div>
