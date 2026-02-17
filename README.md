@@ -2,10 +2,10 @@
 
 [![PyPI](https://img.shields.io/pypi/v/fastapi-sendparcel.svg)](https://pypi.org/project/fastapi-sendparcel/)
 [![Python Version](https://img.shields.io/pypi/pyversions/fastapi-sendparcel.svg)](https://pypi.org/project/fastapi-sendparcel/)
-[![License](https://img.shields.io/pypi/l/fastapi-sendparcel.svg)](https://github.com/sendparcel/fastapi-sendparcel/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/fastapi-sendparcel.svg)](https://github.com/python-sendparcel/fastapi-sendparcel/blob/main/LICENSE)
 [![Documentation](https://readthedocs.org/projects/fastapi-sendparcel/badge/?version=latest)](https://fastapi-sendparcel.readthedocs.io/)
 
-**FastAPI adapter for the [python-sendparcel](https://github.com/sendparcel/python-sendparcel) shipping ecosystem.**
+**FastAPI adapter for the [python-sendparcel](https://github.com/python-sendparcel/python-sendparcel) shipping ecosystem.**
 
 > **Alpha notice** — This package is at version **0.1.0** and its API is not yet
 > stable. Breaking changes may occur in minor releases until 1.0.
@@ -338,9 +338,9 @@ Configuration is in `pyproject.toml`.
 Created and maintained by [Dominik Kozaczko](mailto:dominik@kozaczko.info).
 
 This project is the FastAPI adapter for the
-[python-sendparcel](https://github.com/sendparcel/python-sendparcel)
+[python-sendparcel](https://github.com/python-sendparcel/python-sendparcel)
 ecosystem.
 
 ## License
 
-[MIT](https://github.com/sendparcel/fastapi-sendparcel/blob/main/LICENSE)
+[MIT](https://github.com/python-sendparcel/fastapi-sendparcel/blob/main/LICENSE)
