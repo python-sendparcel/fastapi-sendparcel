@@ -7,22 +7,22 @@ license = { text = "MIT" }
 requires-python = ">=3.12"
 authors = [{ name = "Dominik Kozaczko", email = "dominik@kozaczko.info" }]
 dependencies = [
-    "fastapi>=0.115.0",
-    "pydantic-settings>=2.0.0",
-    "python-sendparcel>=0.1.0",
-    "anyio>=4.0",
+  "fastapi>=0.115.0",
+  "pydantic-settings>=2.0.0",
+  "python-sendparcel>=0.1.0",
+  "anyio>=4.0",
 ]
 keywords = ["fastapi", "shipping", "parcel", "delivery", "sendparcel"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Framework :: FastAPI",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Natural Language :: English",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+  "Development Status :: 3 - Alpha",
+  "Framework :: FastAPI",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 [project.urls]
@@ -34,22 +34,19 @@ Changelog = "https://github.com/sendparcel/fastapi-sendparcel/blob/main/CHANGELO
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24.0",
-    "ruff>=0.9.0",
-    "jinja2>=3.1.6",
-    "python-multipart>=0.0.22",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24.0",
+  "ruff>=0.9.0",
+  "jinja2>=3.1.6",
+  "python-multipart>=0.0.22",
 ]
 docs = [
-    "sphinx>=7.0",
-    "furo>=2024.0",
-    "myst-parser>=3.0",
-    "sphinx-autodoc2>=0.5",
+  "sphinx>=7.0",
+  "furo>=2024.0",
+  "myst-parser>=3.0",
+  "sphinx-autodoc2>=0.5",
 ]
-sqlalchemy = [
-    "sqlalchemy[asyncio]>=2.0.0",
-    "aiosqlite>=0.20.0",
-]
+sqlalchemy = ["sqlalchemy[asyncio]>=2.0.0", "aiosqlite>=0.20.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -71,6 +68,3 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "A", "SIM", "RUF"]
 ignore = ["N818", "B008", "B027"]
-
-[tool.uv.sources]
-python-sendparcel = { path = "../python-sendparcel", editable = true }

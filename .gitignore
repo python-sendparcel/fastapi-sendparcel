@@ -32,3 +32,6 @@ docs/apidocs/
 
 # OS
 .DS_Store
+
+# uv
+uv.lock
