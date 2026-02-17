@@ -22,8 +22,11 @@ config = SendparcelConfig(
 
 | Setting | Type | Default | Env var | Description |
 |---------|------|---------|---------|-------------|
-| `default_provider` | `str` | *(required)* | `DEFAULT_PROVIDER` | Slug of the provider to use when none is specified in the request |
+| `default_provider` | `str` | *(required)* | `SENDPARCEL_DEFAULT_PROVIDER` | Slug of the provider to use when none is specified in the request |
 | `providers` | `dict[str, dict]` | `{}` | — | Per-provider configuration dicts, keyed by provider slug |
+| `retry_max_attempts` | `int` | `5` | `SENDPARCEL_RETRY_MAX_ATTEMPTS` | Max callback retries before giving up |
+| `retry_backoff_seconds` | `int` | `60` | `SENDPARCEL_RETRY_BACKOFF_SECONDS` | Initial wait time between callback retries |
+| `retry_enabled` | `bool` | `True` | `SENDPARCEL_RETRY_ENABLED` | Whether to retry failed provider callbacks |
 
 ### Provider configuration
 
@@ -65,11 +68,38 @@ router = create_shipping_router(
 
 ### CallbackRetryStore
 
-Optional, for persisting failed provider callbacks:
+Interface for persisting failed provider callbacks. Implement this protocol to provide custom storage (e.g. Redis, MongoDB).
 
 ```python
-class YourStore:
-    async def enqueue(self, payload: dict) -> None: ...
+from typing import Protocol
+
+class CallbackRetryStore(Protocol):
+    """Storage abstraction for the webhook retry queue."""
+
+    async def store_failed_callback(
+        self,
+        shipment_id: str,
+        payload: dict,
+        headers: dict,
+    ) -> str:
+        """Store failed callback and return unique retry_id."""
+        ...
+
+    async def get_due_retries(self, limit: int = 10) -> list[dict]:
+        """Fetch callbacks ready for retry (limit results)."""
+        ...
+
+    async def mark_succeeded(self, retry_id: str) -> None:
+        """Remove or mark retry record as completed."""
+        ...
+
+    async def mark_failed(self, retry_id: str, error: str) -> None:
+        """Update retry record with error and increment attempts."""
+        ...
+
+    async def mark_exhausted(self, retry_id: str) -> None:
+        """Mark retry record as failed permanently (max attempts)."""
+        ...
 ```
 
 ## SQLAlchemy integration
