@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 __all__ = [
     "CallbackRetryStore",
@@ -21,13 +21,13 @@ class CallbackRetryStore(Protocol):
         self,
         shipment_id: str,
         provider_slug: str,
-        payload: dict,
-        headers: dict,
+        payload: dict[str, Any],
+        headers: dict[str, Any],
     ) -> str:
         """Store a failed callback for later retry. Returns retry ID."""
         ...
 
-    async def get_due_retries(self, limit: int = 10) -> list[dict]:
+    async def get_due_retries(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get retries that are due for processing."""
         ...
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -15,9 +17,9 @@ class CreateShipmentRequest(BaseModel):
 
     reference_id: str | None = None
     provider: str | None = None
-    sender_address: dict | None = None
-    receiver_address: dict | None = None
-    parcels: list[dict] | None = None
+    sender_address: dict[str, Any] | None = None
+    receiver_address: dict[str, Any] | None = None
+    parcels: list[dict[str, Any]] | None = None
 
 
 class ShipmentResponse(BaseModel):
@@ -31,7 +33,7 @@ class ShipmentResponse(BaseModel):
     label_url: str
 
     @classmethod
-    def from_shipment(cls, shipment) -> ShipmentResponse:
+    def from_shipment(cls, shipment: Any) -> ShipmentResponse:
         return cls(
             id=str(shipment.id),
             status=str(shipment.status),

@@ -30,6 +30,7 @@ async def test_callback_retry_model_has_all_columns(async_session) -> None:
     expected = {
         "id",
         "shipment_id",
+        "provider_slug",
         "payload",
         "headers",
         "attempts",
@@ -45,6 +46,7 @@ async def test_callback_retry_model_defaults(async_session) -> None:
     """Verify default values are set correctly."""
     retry = CallbackRetryModel(
         shipment_id="ship-1",
+        provider_slug="dummy",
         payload={"event": "test"},
         headers={"x-token": "ok"},
     )

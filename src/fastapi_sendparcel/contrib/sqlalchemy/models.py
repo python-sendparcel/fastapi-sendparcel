@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import JSON, DateTime, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -50,8 +51,8 @@ class CallbackRetryModel(Base):
     )
     shipment_id: Mapped[str] = mapped_column(String(64), index=True)
     provider_slug: Mapped[str] = mapped_column(String(64))
-    payload: Mapped[dict] = mapped_column(JSON)
-    headers: Mapped[dict] = mapped_column(JSON)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON)
+    headers: Mapped[dict[str, Any]] = mapped_column(JSON)
     attempts: Mapped[int] = mapped_column(default=0)
     next_retry_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None

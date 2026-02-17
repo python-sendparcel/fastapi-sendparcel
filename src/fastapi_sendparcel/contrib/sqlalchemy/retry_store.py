@@ -1,6 +1,7 @@
 """SQLAlchemy-backed retry store for webhook callbacks."""
 
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -27,8 +28,8 @@ class SQLAlchemyRetryStore:
         self,
         shipment_id: str,
         provider_slug: str,
-        payload: dict,
-        headers: dict,
+        payload: dict[str, Any],
+        headers: dict[str, Any],
     ) -> str:
         """Store a failed callback for later retry."""
         async with self._session_factory() as session:
@@ -49,7 +50,7 @@ class SQLAlchemyRetryStore:
             await session.refresh(retry)
             return retry.id
 
-    async def get_due_retries(self, limit: int = 10) -> list[dict]:
+    async def get_due_retries(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get retries that are due for processing."""
         now = datetime.now(tz=UTC)
         async with self._session_factory() as session:
