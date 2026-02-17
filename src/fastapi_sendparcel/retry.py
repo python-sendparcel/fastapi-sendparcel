@@ -45,6 +45,16 @@ async def process_due_retries(
         headers = retry["headers"]
         attempts = retry["attempts"]
 
+        if attempts >= config.retry_max_attempts:
+            logger.warning(
+                "Retry exhausted for shipment %s after %d attempts",
+                shipment_id,
+                attempts,
+            )
+            await retry_store.mark_exhausted(retry_id)
+            processed += 1
+            continue
+
         try:
             shipment = await repository.get_by_id(shipment_id)
         except ShipmentNotFoundError:
@@ -82,14 +92,19 @@ async def process_due_retries(
                 shipment_id,
             )
         except Exception as exc:
-            if attempts >= config.retry_max_attempts:
-                await retry_store.mark_exhausted(retry_id)
+            new_attempts = attempts + 1
+            if new_attempts >= config.retry_max_attempts:
                 logger.warning(
-                    "Retry %s: exhausted after %d attempts: %s",
-                    retry_id,
-                    attempts,
+                    "Retry exhausted for shipment %s after %d attempts: %s",
+                    shipment_id,
+                    new_attempts,
                     exc,
                 )
+                await retry_store.mark_failed(
+                    retry_id,
+                    error=str(exc),
+                )
+                await retry_store.mark_exhausted(retry_id)
             else:
                 await retry_store.mark_failed(
                     retry_id,
@@ -98,7 +113,7 @@ async def process_due_retries(
                 logger.info(
                     "Retry %s: attempt %d failed: %s",
                     retry_id,
-                    attempts,
+                    new_attempts,
                     exc,
                 )
 
