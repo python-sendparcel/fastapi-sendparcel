@@ -25,7 +25,6 @@ def test_all_exports_importable() -> None:
     expected = {
         "CallbackRetryStore",
         "FastAPIPluginRegistry",
-        "OrderResolver",
         "SendparcelConfig",
         "ShipmentNotFoundError",
         "__version__",

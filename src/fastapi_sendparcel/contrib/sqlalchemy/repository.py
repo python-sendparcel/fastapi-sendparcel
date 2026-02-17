@@ -27,14 +27,11 @@ class SQLAlchemyShipmentRepository:
             return shipment
 
     async def create(self, **kwargs) -> ShipmentModel:
-        order = kwargs.pop("order", None)
-        if order is not None and "order_id" not in kwargs:
-            kwargs["order_id"] = str(getattr(order, "id", order))
         shipment = ShipmentModel(
             id=kwargs.get("id") or str(uuid.uuid4()),
             status=str(kwargs.get("status", "new")),
             provider=kwargs["provider"],
-            order_id=kwargs.get("order_id", ""),
+            reference_id=kwargs.get("reference_id", ""),
         )
         async with self.session_factory() as session:
             session.add(shipment)
@@ -64,11 +61,11 @@ class SQLAlchemyShipmentRepository:
             await session.refresh(shipment)
             return shipment
 
-    async def list_by_order(self, order_id: str) -> list[ShipmentModel]:
-        """List all shipments for an order."""
+    async def list_by_reference(self, reference_id: str) -> list[ShipmentModel]:
+        """List all shipments for a reference."""
         async with self.session_factory() as session:
             stmt = select(ShipmentModel).where(
-                ShipmentModel.order_id == order_id
+                ShipmentModel.reference_id == reference_id
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())

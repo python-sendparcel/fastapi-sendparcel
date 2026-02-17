@@ -14,11 +14,11 @@ from delivery_sim import (
     _sim_shipments,
     sim_router,
 )
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from models import OrderModel
 from sendparcel.flow import ShipmentFlow
+from sendparcel.types import AddressInfo, ParcelInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -31,7 +31,7 @@ from fastapi_sendparcel import (
     SendparcelConfig,
     create_shipping_router,
 )
-from fastapi_sendparcel.contrib.sqlalchemy.models import Base
+from fastapi_sendparcel.contrib.sqlalchemy.models import Base, ShipmentModel
 from fastapi_sendparcel.contrib.sqlalchemy.repository import (
     SQLAlchemyShipmentRepository,
 )
@@ -63,33 +63,10 @@ config = SendparcelConfig(
 repository = SQLAlchemyShipmentRepository(async_session)
 retry_store = SQLAlchemyRetryStore(async_session)
 
-
-class ExampleOrderResolver:
-    """Resolves order IDs to OrderModel instances from the database."""
-
-    def __init__(
-        self, session_factory: async_sessionmaker[AsyncSession]
-    ) -> None:
-        self._session_factory = session_factory
-
-    async def resolve(self, order_id: str) -> OrderModel:
-        async with self._session_factory() as session:
-            result = await session.execute(
-                select(OrderModel).where(OrderModel.id == int(order_id))
-            )
-            order = result.scalar_one_or_none()
-            if order is None:
-                raise ValueError(f"Order with ID {order_id} does not exist")
-            return order
-
-
-order_resolver = ExampleOrderResolver(async_session)
-
 shipping_router = create_shipping_router(
     config=config,
     repository=repository,
     registry=plugin_registry,
-    order_resolver=order_resolver,
     retry_store=retry_store,
 )
 
@@ -120,20 +97,24 @@ app.include_router(sim_router)
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
-    """List orders."""
+    """List shipments."""
     async with async_session() as session:
         result = await session.execute(
-            select(OrderModel).order_by(OrderModel.id.desc())
+            select(ShipmentModel).order_by(ShipmentModel.created_at.desc())
         )
-        orders = result.scalars().all()
-    return templates.TemplateResponse(request, "home.html", {"orders": orders})
+        shipments = result.scalars().all()
+    providers = plugin_registry.get_choices()
+    return templates.TemplateResponse(
+        request, "home.html", {"shipments": shipments, "providers": providers}
+    )
 
 
-@app.post("/orders")
-async def create_order(
+@app.post("/shipments")
+async def create_shipment_view(
     request: Request,
     description: str = Form(""),
     total_weight: str = Form("1.0"),
+    provider: str = Form("delivery-sim"),
     sender_name: str = Form(""),
     sender_email: str = Form(""),
     sender_phone: str = Form(""),
@@ -146,72 +127,41 @@ async def create_order(
     recipient_line1: str = Form(""),
     recipient_city: str = Form(""),
     recipient_postal_code: str = Form(""),
-) -> RedirectResponse:
-    """Create a new order and redirect to its details."""
+) -> HTMLResponse:
+    """Create a new shipment directly via ShipmentFlow."""
     try:
         weight = Decimal(total_weight)
     except (InvalidOperation, ValueError):
         weight = Decimal("1.0")
 
-    order = OrderModel(
-        description=description,
-        total_weight=weight,
-        sender_name=sender_name,
-        sender_email=sender_email,
-        sender_phone=sender_phone,
-        sender_line1=sender_line1,
-        sender_city=sender_city,
-        sender_postal_code=sender_postal_code,
-        recipient_name=recipient_name,
-        recipient_email=recipient_email,
-        recipient_phone=recipient_phone,
-        recipient_line1=recipient_line1,
-        recipient_city=recipient_city,
-        recipient_postal_code=recipient_postal_code,
+    sender_address = AddressInfo(
+        name=sender_name,
+        email=sender_email,
+        phone=sender_phone,
+        line1=sender_line1,
+        city=sender_city,
+        postal_code=sender_postal_code,
+        country_code="PL",
     )
-    async with async_session() as session:
-        session.add(order)
-        await session.commit()
-        await session.refresh(order)
-    return RedirectResponse(url=f"/orders/{order.id}", status_code=303)
-
-
-@app.get("/orders/{order_id}", response_class=HTMLResponse)
-async def order_detail(request: Request, order_id: int) -> HTMLResponse:
-    """Order details with shipment creation form."""
-    async with async_session() as session:
-        result = await session.execute(
-            select(OrderModel).where(OrderModel.id == order_id)
-        )
-        order = result.scalar_one_or_none()
-    if order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    providers = plugin_registry.get_choices()
-    return templates.TemplateResponse(
-        request,
-        "order_detail.html",
-        {"order": order, "providers": providers},
+    receiver_address = AddressInfo(
+        name=recipient_name,
+        email=recipient_email,
+        phone=recipient_phone,
+        line1=recipient_line1,
+        city=recipient_city,
+        postal_code=recipient_postal_code,
+        country_code="PL",
     )
-
-
-@app.post("/orders/{order_id}/ship")
-async def create_shipment_for_order(
-    request: Request,
-    order_id: int,
-    provider: str = Form(...),
-) -> HTMLResponse:
-    """Create a shipment for an order via ShipmentFlow."""
-    async with async_session() as session:
-        result = await session.execute(
-            select(OrderModel).where(OrderModel.id == order_id)
-        )
-        order = result.scalar_one_or_none()
-    if order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
+    parcels = [ParcelInfo(weight_kg=weight)]
 
     flow = ShipmentFlow(repository=repository, config=config.providers)
-    shipment = await flow.create_shipment_from_order(order, provider)
+    shipment = await flow.create_shipment(
+        provider,
+        sender_address=sender_address,
+        receiver_address=receiver_address,
+        parcels=parcels,
+        reference_id=description or "",
+    )
     shipment = await flow.create_label(shipment)
 
     return templates.TemplateResponse(

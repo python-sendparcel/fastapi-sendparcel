@@ -9,7 +9,6 @@ def test_all_exports_exact_set() -> None:
     expected = {
         "CallbackRetryStore",
         "FastAPIPluginRegistry",
-        "OrderResolver",
         "SendparcelConfig",
         "ShipmentNotFoundError",
         "__version__",
@@ -17,7 +16,7 @@ def test_all_exports_exact_set() -> None:
         "register_exception_handlers",
     }
     assert set(fastapi_sendparcel.__all__) == expected
-    assert len(fastapi_sendparcel.__all__) == 8
+    assert len(fastapi_sendparcel.__all__) == 7
 
 
 def test_all_exports_importable() -> None:

@@ -7,7 +7,6 @@ __version__ = "0.1.0"
 __all__ = [
     "CallbackRetryStore",
     "FastAPIPluginRegistry",
-    "OrderResolver",
     "SendparcelConfig",
     "ShipmentNotFoundError",
     "__version__",
@@ -21,7 +20,7 @@ if TYPE_CHECKING:
         ShipmentNotFoundError,
         register_exception_handlers,
     )
-    from fastapi_sendparcel.protocols import CallbackRetryStore, OrderResolver
+    from fastapi_sendparcel.protocols import CallbackRetryStore
     from fastapi_sendparcel.registry import FastAPIPluginRegistry
     from fastapi_sendparcel.router import create_shipping_router
 
@@ -44,7 +43,7 @@ def __getattr__(name: str):
         from fastapi_sendparcel import exceptions
 
         return getattr(exceptions, name)
-    if name in ("CallbackRetryStore", "OrderResolver"):
+    if name == "CallbackRetryStore":
         from fastapi_sendparcel import protocols
 
         return getattr(protocols, name)

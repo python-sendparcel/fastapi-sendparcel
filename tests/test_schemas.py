@@ -15,19 +15,19 @@ class TestCreateShipmentRequest:
     def test_empty_request_is_valid(self) -> None:
         """All fields are optional — empty request is valid (route handles validation)."""
         req = CreateShipmentRequest()
-        assert req.order_id is None
+        assert req.reference_id is None
         assert req.provider is None
         assert req.sender_address is None
         assert req.receiver_address is None
         assert req.parcels is None
 
-    def test_order_based_request(self) -> None:
-        req = CreateShipmentRequest(order_id="o-1")
-        assert req.order_id == "o-1"
+    def test_reference_id_set(self) -> None:
+        req = CreateShipmentRequest(reference_id="ref-1")
+        assert req.reference_id == "ref-1"
         assert req.provider is None
 
     def test_provider_set(self) -> None:
-        req = CreateShipmentRequest(order_id="o-1", provider="dhl")
+        req = CreateShipmentRequest(reference_id="ref-1", provider="dhl")
         assert req.provider == "dhl"
 
     def test_direct_request(self) -> None:
@@ -36,7 +36,7 @@ class TestCreateShipmentRequest:
             receiver_address={"country_code": "DE"},
             parcels=[{"weight_kg": "1.0"}],
         )
-        assert req.order_id is None
+        assert req.reference_id is None
         assert req.sender_address == {"country_code": "PL"}
         assert req.receiver_address == {"country_code": "DE"}
         assert req.parcels == [{"weight_kg": "1.0"}]

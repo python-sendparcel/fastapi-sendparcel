@@ -55,30 +55,30 @@ class TestSQLAlchemyShipmentRepository:
         assert updated.status == "created"
         assert updated.external_id == "ext-4"
 
-    async def test_list_by_order(self, sqlalchemy_repository) -> None:
+    async def test_list_by_reference(self, sqlalchemy_repository) -> None:
         await sqlalchemy_repository.create(
             id="s-5",
             provider="dummy",
             status="new",
-            order_id="order-A",
+            reference_id="ref-A",
         )
         await sqlalchemy_repository.create(
             id="s-6",
             provider="dummy",
             status="new",
-            order_id="order-A",
+            reference_id="ref-A",
         )
         await sqlalchemy_repository.create(
             id="s-7",
             provider="dummy",
             status="new",
-            order_id="order-B",
+            reference_id="ref-B",
         )
-        results = await sqlalchemy_repository.list_by_order("order-A")
+        results = await sqlalchemy_repository.list_by_reference("ref-A")
         assert len(results) == 2
         ids = {s.id for s in results}
         assert ids == {"s-5", "s-6"}
 
-    async def test_list_by_order_empty(self, sqlalchemy_repository) -> None:
-        results = await sqlalchemy_repository.list_by_order("nonexistent")
+    async def test_list_by_reference_empty(self, sqlalchemy_repository) -> None:
+        results = await sqlalchemy_repository.list_by_reference("nonexistent")
         assert results == []

@@ -17,6 +17,12 @@ from fastapi_sendparcel.router import create_shipping_router
 # Providers
 # ---------------------------------------------------------------------------
 
+_DIRECT_PAYLOAD = {
+    "sender_address": {"country_code": "PL"},
+    "receiver_address": {"country_code": "DE"},
+    "parcels": [{"weight_kg": "1.0"}],
+}
+
 
 class CallbackTestProvider(BaseProvider):
     """Provider that verifies callbacks via x-test-token header."""
@@ -88,7 +94,7 @@ class CommErrorCallbackProvider(BaseProvider):
 
 
 def _create_client(
-    repo, resolver, retry_store=None, *, provider_cls=CallbackTestProvider
+    repo, retry_store=None, *, provider_cls=CallbackTestProvider
 ):
     registry.register(provider_cls)
     app = FastAPI()
@@ -99,7 +105,6 @@ def _create_client(
             providers={provider_cls.slug: {}},
         ),
         repository=repo,
-        order_resolver=resolver,
         retry_store=retry_store,
     )
     app.include_router(router)
@@ -108,7 +113,7 @@ def _create_client(
 
 def _prepare_shipment(client):
     """Create a shipment and generate a label so callback transitions work."""
-    created = client.post("/shipments", json={"order_id": "o-1"})
+    created = client.post("/shipments", json=_DIRECT_PAYLOAD)
     sid = created.json()["id"]
     client.post(f"/shipments/{sid}/label")
     return sid
@@ -119,9 +124,9 @@ def _prepare_shipment(client):
 # ---------------------------------------------------------------------------
 
 
-def test_provider_slug_mismatch(repository, resolver) -> None:
+def test_provider_slug_mismatch(repository) -> None:
     """Wrong provider slug returns 400 with 'mismatch'."""
-    client = _create_client(repository, resolver)
+    client = _create_client(repository)
 
     with client:
         sid = _prepare_shipment(client)
@@ -137,9 +142,9 @@ def test_provider_slug_mismatch(repository, resolver) -> None:
         assert "mismatch" in body["detail"].lower()
 
 
-def test_callback_no_retry_store(repository, resolver) -> None:
+def test_callback_no_retry_store(repository) -> None:
     """InvalidCallbackError with no retry_store returns 400."""
-    client = _create_client(repository, resolver, retry_store=None)
+    client = _create_client(repository, retry_store=None)
 
     with client:
         sid = _prepare_shipment(client)
@@ -154,9 +159,9 @@ def test_callback_no_retry_store(repository, resolver) -> None:
         assert "bad token" in resp.json()["detail"].lower()
 
 
-def test_callback_invalid_json_body(repository, resolver) -> None:
+def test_callback_invalid_json_body(repository) -> None:
     """Non-JSON body falls back to empty dict; succeeds with valid token."""
-    client = _create_client(repository, resolver)
+    client = _create_client(repository)
 
     with client:
         sid = _prepare_shipment(client)
@@ -173,9 +178,9 @@ def test_callback_invalid_json_body(repository, resolver) -> None:
         assert resp.status_code == 200
 
 
-def test_callback_shipment_not_found(repository, resolver) -> None:
+def test_callback_shipment_not_found(repository) -> None:
     """POST callback for nonexistent shipment ID raises KeyError (unhandled)."""
-    client = _create_client(repository, resolver)
+    client = _create_client(repository)
 
     with client, pytest.raises(KeyError):
         client.post(
@@ -186,10 +191,10 @@ def test_callback_shipment_not_found(repository, resolver) -> None:
 
 
 def test_callback_happy_path_returns_correct_format(
-    repository, resolver
+    repository,
 ) -> None:
     """Verify response body has provider, status, shipment_status keys."""
-    client = _create_client(repository, resolver)
+    client = _create_client(repository)
 
     with client:
         sid = _prepare_shipment(client)
@@ -208,12 +213,11 @@ def test_callback_happy_path_returns_correct_format(
 
 
 def test_callback_communication_error_status_code(
-    repository, resolver, retry_store
+    repository, retry_store
 ) -> None:
     """CommunicationError from handle_callback returns 502."""
     client = _create_client(
         repository,
-        resolver,
         retry_store=retry_store,
         provider_cls=CommErrorCallbackProvider,
     )

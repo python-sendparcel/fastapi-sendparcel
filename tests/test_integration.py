@@ -8,7 +8,7 @@ from sendparcel.exceptions import InvalidCallbackError
 from sendparcel.provider import BaseProvider
 from sendparcel.registry import registry
 
-from conftest import InMemoryRepo, OrderResolver, RetryStore
+from conftest import InMemoryRepo, RetryStore
 from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.exceptions import register_exception_handlers
 from fastapi_sendparcel.router import create_shipping_router
@@ -16,6 +16,12 @@ from fastapi_sendparcel.router import create_shipping_router
 # ---------------------------------------------------------------------------
 # Custom integration provider
 # ---------------------------------------------------------------------------
+
+_DIRECT_PAYLOAD = {
+    "sender_address": {"country_code": "PL"},
+    "receiver_address": {"country_code": "DE"},
+    "parcels": [{"weight_kg": "1.0"}],
+}
 
 
 class _IntegrationProvider(BaseProvider):
@@ -74,7 +80,6 @@ _PROVIDER_CONFIG = {"status_override": "in_transit"}
 def _create_app() -> tuple[FastAPI, InMemoryRepo, RetryStore]:
     """Build a fully-wired FastAPI app with in-memory fixtures."""
     repo = InMemoryRepo()
-    resolver = OrderResolver()
     retry_store = RetryStore()
 
     registry.register(_IntegrationProvider)
@@ -87,7 +92,6 @@ def _create_app() -> tuple[FastAPI, InMemoryRepo, RetryStore]:
             providers={"intprovider": _PROVIDER_CONFIG},
         ),
         repository=repo,
-        order_resolver=resolver,
         retry_store=retry_store,
     )
     app.include_router(router)
@@ -99,12 +103,12 @@ def _create_app() -> tuple[FastAPI, InMemoryRepo, RetryStore]:
 # ---------------------------------------------------------------------------
 
 
-def test_create_shipment_through_api(repository, resolver, retry_store) -> None:
+def test_create_shipment_through_api(repository, retry_store) -> None:
     """POST /shipments creates a shipment and returns correct fields."""
     app, _repo, _rs = _create_app()
 
     with TestClient(app) as client:
-        resp = client.post("/shipments", json={"order_id": "order-1"})
+        resp = client.post("/shipments", json=_DIRECT_PAYLOAD)
 
         assert resp.status_code == 200
         body = resp.json()
@@ -114,13 +118,13 @@ def test_create_shipment_through_api(repository, resolver, retry_store) -> None:
         assert body["tracking_number"].startswith("INT-")
 
 
-def test_callback_through_api(repository, resolver, retry_store) -> None:
-    """Create → Label → Callback transitions shipment to in_transit."""
+def test_callback_through_api(repository, retry_store) -> None:
+    """Create -> Label -> Callback transitions shipment to in_transit."""
     app, _repo, _rs = _create_app()
 
     with TestClient(app) as client:
         # Create shipment
-        created = client.post("/shipments", json={"order_id": "order-2"})
+        created = client.post("/shipments", json=_DIRECT_PAYLOAD)
         sid = created.json()["id"]
 
         # Create label (transitions to label_ready)
@@ -142,15 +146,13 @@ def test_callback_through_api(repository, resolver, retry_store) -> None:
         assert cb_body["shipment_status"] == "in_transit"
 
 
-def test_label_and_status_through_api(
-    repository, resolver, retry_store
-) -> None:
-    """Create → Label → fetch_status verifies correct transitions."""
+def test_label_and_status_through_api(repository, retry_store) -> None:
+    """Create -> Label -> fetch_status verifies correct transitions."""
     app, _repo, _rs = _create_app()
 
     with TestClient(app) as client:
         # Create shipment
-        created = client.post("/shipments", json={"order_id": "order-3"})
+        created = client.post("/shipments", json=_DIRECT_PAYLOAD)
         assert created.status_code == 200
         sid = created.json()["id"]
         assert created.json()["status"] == "created"
@@ -167,13 +169,13 @@ def test_label_and_status_through_api(
         assert status_resp.json()["status"] == "in_transit"
 
 
-def test_full_lifecycle(repository, resolver, retry_store) -> None:
+def test_full_lifecycle(repository, retry_store) -> None:
     """Full lifecycle: Create, Label, Status, Callback, Health."""
     app, _repo, _rs = _create_app()
 
     with TestClient(app) as client:
         # 1. Create shipment
-        created = client.post("/shipments", json={"order_id": "order-4"})
+        created = client.post("/shipments", json=_DIRECT_PAYLOAD)
         assert created.status_code == 200
         sid = created.json()["id"]
         assert created.json()["status"] == "created"

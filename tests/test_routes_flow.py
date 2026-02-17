@@ -10,6 +10,12 @@ from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.exceptions import register_exception_handlers
 from fastapi_sendparcel.router import create_shipping_router
 
+_DIRECT_PAYLOAD = {
+    "sender_address": {"country_code": "PL"},
+    "receiver_address": {"country_code": "DE"},
+    "parcels": [{"weight_kg": "1.0"}],
+}
+
 
 class DummyProvider(BaseProvider):
     slug = "dummy"
@@ -42,7 +48,7 @@ class DummyProvider(BaseProvider):
         return True
 
 
-def _create_client(repo, resolver, retry_store):
+def _create_client(repo, retry_store):
     registry.register(DummyProvider)
     app = FastAPI()
     register_exception_handlers(app)
@@ -52,20 +58,17 @@ def _create_client(repo, resolver, retry_store):
             providers={"dummy": {"status_override": "in_transit"}},
         ),
         repository=repo,
-        order_resolver=resolver,
         retry_store=retry_store,
     )
     app.include_router(router)
     return TestClient(app)
 
 
-def test_create_label_status_and_callback_flow(
-    repository, resolver, retry_store
-) -> None:
-    client = _create_client(repository, resolver, retry_store)
+def test_create_label_status_and_callback_flow(repository, retry_store) -> None:
+    client = _create_client(repository, retry_store)
 
     with client:
-        created = client.post("/shipments", json={"order_id": "o-1"})
+        created = client.post("/shipments", json=_DIRECT_PAYLOAD)
         assert created.status_code == 200
         shipment_id = created.json()["id"]
         assert created.json()["status"] == "created"
@@ -87,13 +90,13 @@ def test_create_label_status_and_callback_flow(
 
 
 def test_invalid_callback_does_not_enqueue_retry(
-    repository, resolver, retry_store
+    repository, retry_store
 ) -> None:
     """InvalidCallbackError should NOT trigger retry."""
-    client = _create_client(repository, resolver, retry_store)
+    client = _create_client(repository, retry_store)
 
     with client:
-        created = client.post("/shipments", json={"order_id": "o-1"})
+        created = client.post("/shipments", json=_DIRECT_PAYLOAD)
         shipment_id = created.json()["id"]
         client.post(f"/shipments/{shipment_id}/label")
 
@@ -132,7 +135,7 @@ class CommErrorProvider(BaseProvider):
         return True
 
 
-def _create_commerr_client(repo, resolver, retry_store):
+def _create_commerr_client(repo, retry_store):
     registry.register(CommErrorProvider)
     app = FastAPI()
     register_exception_handlers(app)
@@ -142,7 +145,6 @@ def _create_commerr_client(repo, resolver, retry_store):
             providers={"commerr": {}},
         ),
         repository=repo,
-        order_resolver=resolver,
         retry_store=retry_store,
     )
     app.include_router(router)
@@ -150,13 +152,13 @@ def _create_commerr_client(repo, resolver, retry_store):
 
 
 def test_communication_error_enqueues_retry_and_returns_502(
-    repository, resolver, retry_store
+    repository, retry_store
 ) -> None:
     """CommunicationError (transient) should enqueue retry and return 502."""
-    client = _create_commerr_client(repository, resolver, retry_store)
+    client = _create_commerr_client(repository, retry_store)
 
     with client:
-        created = client.post("/shipments", json={"order_id": "o-1"})
+        created = client.post("/shipments", json=_DIRECT_PAYLOAD)
         shipment_id = created.json()["id"]
         client.post(f"/shipments/{shipment_id}/label")
 

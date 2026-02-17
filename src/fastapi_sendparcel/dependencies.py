@@ -7,7 +7,7 @@ from sendparcel.flow import ShipmentFlow
 from sendparcel.protocols import ShipmentRepository
 
 from fastapi_sendparcel.config import SendparcelConfig
-from fastapi_sendparcel.protocols import CallbackRetryStore, OrderResolver
+from fastapi_sendparcel.protocols import CallbackRetryStore
 from fastapi_sendparcel.registry import FastAPIPluginRegistry
 
 
@@ -24,11 +24,6 @@ def get_repository(request: Request) -> ShipmentRepository:
 def get_registry(request: Request) -> FastAPIPluginRegistry:
     """Read plugin registry from FastAPI app state."""
     return request.app.state.sendparcel_registry
-
-
-def get_order_resolver(request: Request) -> OrderResolver | None:
-    """Read order resolver from FastAPI app state."""
-    return getattr(request.app.state, "sendparcel_order_resolver", None)
 
 
 def get_retry_store(request: Request) -> CallbackRetryStore | None:

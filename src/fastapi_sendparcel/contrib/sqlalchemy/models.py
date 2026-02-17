@@ -19,7 +19,9 @@ class ShipmentModel(Base):
     __tablename__ = "sendparcel_shipments"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    order_id: Mapped[str] = mapped_column(String(64), index=True, default="")
+    reference_id: Mapped[str] = mapped_column(
+        String(64), index=True, default=""
+    )
     status: Mapped[str] = mapped_column(String(32), default="new")
     provider: Mapped[str] = mapped_column(String(64))
     external_id: Mapped[str] = mapped_column(String(128), default="")

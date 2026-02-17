@@ -11,7 +11,6 @@ from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.dependencies import (
     get_config,
     get_flow,
-    get_order_resolver,
     get_repository,
     get_retry_store,
 )
@@ -37,11 +36,6 @@ class TestDependencies:
         request = _make_request(sendparcel_repository=repo)
         result = get_repository(request)
         assert result is repo
-
-    def test_get_order_resolver_returns_none_when_not_set(self) -> None:
-        request = _make_request()
-        result = get_order_resolver(request)
-        assert result is None
 
     def test_get_retry_store_returns_none_when_not_set(self) -> None:
         request = _make_request()

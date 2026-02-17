@@ -124,7 +124,6 @@ keyword-only parameters:
 | `config` | `SendparcelConfig` | Yes | Adapter configuration instance |
 | `repository` | `ShipmentRepository` | Yes | Persistence backend for shipments |
 | `registry` | `FastAPIPluginRegistry` | No | Plugin registry (auto-created if omitted) |
-| `order_resolver` | `OrderResolver` | No | Maps order IDs to `Order` objects |
 | `retry_store` | `CallbackRetryStore` | No | Storage for webhook retry queue |
 
 ## Configuration
@@ -163,7 +162,7 @@ endpoints. All paths are relative to the prefix you mount the router at
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/shipments/health` | Healthcheck — returns `{"status": "ok"}` |
-| `POST` | `/shipments` | Create a new shipment from an order |
+| `POST` | `/shipments` | Create a new shipment |
 | `POST` | `/shipments/{shipment_id}/label` | Generate a shipping label |
 | `GET` | `/shipments/{shipment_id}/status` | Fetch and update shipment status from the provider |
 | `POST` | `/callbacks/{provider_slug}/{shipment_id}` | Handle a provider webhook callback |
@@ -174,13 +173,31 @@ endpoints. All paths are relative to the prefix you mount the router at
 
 ```json
 {
-  "order_id": "123",
-  "provider": "my-provider"
+  "reference_id": "my-ref-123",
+  "provider": "my-provider",
+  "sender_address": {
+    "name": "John Smith",
+    "line1": "1 Example St",
+    "city": "Warsaw",
+    "postal_code": "00-001",
+    "country_code": "PL"
+  },
+  "receiver_address": {
+    "name": "Jane Doe",
+    "line1": "5 Destination St",
+    "city": "Krakow",
+    "postal_code": "30-001",
+    "country_code": "PL"
+  },
+  "parcels": [
+    {"weight_kg": 2.5}
+  ]
 }
 ```
 
 The `provider` field is optional; when omitted, `default_provider` from the
-config is used.
+config is used. The `reference_id` field is optional and can be used for
+external reference tracking.
 
 **`ShipmentResponse`** — returned by shipment, label and status endpoints:
 
@@ -219,24 +236,6 @@ The router automatically registers exception handlers that map core
 | `SendParcelException` | 400 | `shipment_error` |
 
 ## Protocols
-
-The adapter defines two protocols you can implement:
-
-### `OrderResolver`
-
-Resolves order IDs (strings from the API request) to `Order` objects
-understood by the core library.
-
-```python
-from fastapi_sendparcel import OrderResolver
-from sendparcel.protocols import Order
-
-
-class MyOrderResolver:
-    async def resolve(self, order_id: str) -> Order:
-        # Load from your database, ORM, etc.
-        ...
-```
 
 ### `CallbackRetryStore`
 
@@ -299,8 +298,8 @@ retry_store = SQLAlchemyRetryStore(session_factory, backoff_seconds=60)
 The `example/` directory contains a full demo application with:
 
 - Tabler-based UI with Jinja2 templates and HTMX
-- Order management (create, list, detail views)
-- Shipment creation and label generation
+- Shipment creation with sender/receiver address forms
+- Label generation and PDF download
 - A simulated delivery provider (`delivery_sim.py`)
 
 ### Running the example

@@ -8,12 +8,12 @@ from pydantic import BaseModel
 class CreateShipmentRequest(BaseModel):
     """Payload for shipment creation.
 
-    Either ``order_id`` (order-based flow) **or** the explicit
-    ``sender_address`` + ``receiver_address`` + ``parcels`` fields
-    (direct flow) must be provided.
+    The ``sender_address``, ``receiver_address``, and ``parcels`` fields
+    are required for creating a shipment.  An optional ``reference_id``
+    can be provided for external reference tracking.
     """
 
-    order_id: str | None = None
+    reference_id: str | None = None
     provider: str | None = None
     sender_address: dict | None = None
     receiver_address: dict | None = None

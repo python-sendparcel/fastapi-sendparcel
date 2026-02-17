@@ -109,7 +109,7 @@ class TestProcessDueRetries:
 
         shipment = DemoShipment(
             id="ship-1",
-            order_id="o-1",
+            reference_id="ref-1",
             status="label_ready",
             provider="dummy",
         )
@@ -162,7 +162,7 @@ class TestProcessDueRetries:
 
         shipment = DemoShipment(
             id="ship-1",
-            order_id="o-1",
+            reference_id="ref-1",
             status="label_ready",
             provider="dummy",
         )
@@ -193,7 +193,7 @@ class TestProcessDueRetries:
 
         shipment = DemoShipment(
             id="ship-1",
-            order_id="o-1",
+            reference_id="ref-1",
             status="label_ready",
             provider="dummy",
         )

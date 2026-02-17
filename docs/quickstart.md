@@ -78,8 +78,8 @@ uv run uvicorn app:app --reload
 
 Open [http://localhost:8000](http://localhost:8000) to see the demo with:
 
-- Order creation and management
-- Shipment creation via a simulated delivery provider
+- Shipment creation with sender/receiver address forms
+- Label generation and PDF download
 - Real-time status tracking with delivery simulation
 - Tabler UI with HTMX interactions
 

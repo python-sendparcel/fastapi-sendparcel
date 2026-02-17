@@ -25,9 +25,6 @@ fastapi_sendparcel
 
 ## Protocols
 
-```{autodoc2-object} fastapi_sendparcel.protocols.OrderResolver
-```
-
 ```{autodoc2-object} fastapi_sendparcel.protocols.CallbackRetryStore
 ```
 

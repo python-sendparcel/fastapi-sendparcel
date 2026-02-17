@@ -8,10 +8,8 @@ from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.dependencies import (
     get_config,
     get_flow,
-    get_order_resolver,
     get_repository,
 )
-from fastapi_sendparcel.protocols import OrderResolver
 from fastapi_sendparcel.schemas import CreateShipmentRequest, ShipmentResponse
 
 router = APIRouter()
@@ -28,31 +26,19 @@ async def create_shipment(
     body: CreateShipmentRequest,
     flow=Depends(get_flow),
     config: SendparcelConfig = Depends(get_config),
-    order_resolver: OrderResolver | None = Depends(get_order_resolver),
 ) -> ShipmentResponse:
     """Create a shipment via ShipmentFlow.
 
-    Supports two modes:
-    - **Order-based**: provide ``order_id`` — resolves order and delegates.
-    - **Direct**: provide ``sender_address``, ``receiver_address``, ``parcels``.
+    Requires ``sender_address``, ``receiver_address``, and ``parcels``.
+    Optionally accepts ``reference_id`` for external reference tracking.
     """
     provider_slug = body.provider or config.default_provider
 
-    if body.order_id is not None:
-        # Order-based flow
-        if order_resolver is None:
-            raise HTTPException(
-                status_code=500,
-                detail="Order resolver not configured",
-            )
-        order = await order_resolver.resolve(body.order_id)
-        shipment = await flow.create_shipment_from_order(order, provider_slug)
-    elif (
+    if (
         body.sender_address is not None
         and body.receiver_address is not None
         and body.parcels is not None
     ):
-        # Direct flow
         shipment = await flow.create_shipment(
             provider_slug,
             sender_address=body.sender_address,
@@ -63,8 +49,7 @@ async def create_shipment(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Provide either 'order_id' or "
-                "'sender_address', 'receiver_address', and 'parcels'"
+                "Provide 'sender_address', 'receiver_address', and 'parcels'"
             ),
         )
 

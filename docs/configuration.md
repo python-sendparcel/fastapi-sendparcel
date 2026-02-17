@@ -50,7 +50,6 @@ router = create_shipping_router(
     config=config,                    # SendparcelConfig (required)
     repository=repository,            # ShipmentRepository (required)
     registry=plugin_registry,         # FastAPIPluginRegistry (optional)
-    order_resolver=order_resolver,    # OrderResolver (optional)
     retry_store=retry_store,          # CallbackRetryStore (optional)
 )
 ```
@@ -60,34 +59,9 @@ router = create_shipping_router(
 | `config` | `SendparcelConfig` | Yes | Runtime configuration |
 | `repository` | `ShipmentRepository` | Yes | Persistence backend for shipments |
 | `registry` | `FastAPIPluginRegistry` | No | Plugin registry; auto-created if not provided |
-| `order_resolver` | `OrderResolver` | No | Resolves order IDs to `Order` objects; required for `POST /shipments` |
 | `retry_store` | `CallbackRetryStore` | No | Stores failed callbacks for retry |
 
 ## Protocols
-
-### Order
-
-Your order model must implement these methods:
-
-```python
-from decimal import Decimal
-from sendparcel.types import AddressInfo, ParcelInfo
-
-class YourOrder:
-    def get_total_weight(self) -> Decimal: ...
-    def get_parcels(self) -> list[ParcelInfo]: ...
-    def get_sender_address(self) -> AddressInfo: ...
-    def get_receiver_address(self) -> AddressInfo: ...
-```
-
-### OrderResolver
-
-Required if you use the `POST /shipments` endpoint:
-
-```python
-class YourResolver:
-    async def resolve(self, order_id: str) -> Order: ...
-```
 
 ### CallbackRetryStore
 
