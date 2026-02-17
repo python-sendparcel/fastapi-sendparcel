@@ -7,7 +7,7 @@ import pytest
 from sendparcel.providers.dummy import DummyProvider
 from sendparcel.registry import registry
 
-from conftest import DemoOrder, DemoShipment
+from conftest import DemoShipment
 from fastapi_sendparcel.config import SendparcelConfig
 from fastapi_sendparcel.retry import compute_next_retry_at, process_due_retries
 
@@ -109,7 +109,7 @@ class TestProcessDueRetries:
 
         shipment = DemoShipment(
             id="ship-1",
-            order=DemoOrder(id="o-1"),
+            order_id="o-1",
             status="label_ready",
             provider="dummy",
         )
@@ -162,7 +162,7 @@ class TestProcessDueRetries:
 
         shipment = DemoShipment(
             id="ship-1",
-            order=DemoOrder(id="o-1"),
+            order_id="o-1",
             status="label_ready",
             provider="dummy",
         )
@@ -193,7 +193,7 @@ class TestProcessDueRetries:
 
         shipment = DemoShipment(
             id="ship-1",
-            order=DemoOrder(id="o-1"),
+            order_id="o-1",
             status="label_ready",
             provider="dummy",
         )

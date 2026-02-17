@@ -24,7 +24,9 @@ class _IntegrationProvider(BaseProvider):
     slug = "intprovider"
     display_name = "Integration Provider"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {
             "external_id": f"int-ext-{self.shipment.id}",
             "tracking_number": f"INT-{self.shipment.id}",

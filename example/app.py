@@ -211,7 +211,7 @@ async def create_shipment_for_order(
         raise HTTPException(status_code=404, detail="Order not found")
 
     flow = ShipmentFlow(repository=repository, config=config.providers)
-    shipment = await flow.create_shipment(order, provider)
+    shipment = await flow.create_shipment_from_order(order, provider)
     shipment = await flow.create_label(shipment)
 
     return templates.TemplateResponse(

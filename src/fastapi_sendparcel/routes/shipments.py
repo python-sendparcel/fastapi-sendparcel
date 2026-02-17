@@ -30,16 +30,44 @@ async def create_shipment(
     config: SendparcelConfig = Depends(get_config),
     order_resolver: OrderResolver | None = Depends(get_order_resolver),
 ) -> ShipmentResponse:
-    """Create a shipment via ShipmentFlow."""
-    if order_resolver is None:
+    """Create a shipment via ShipmentFlow.
+
+    Supports two modes:
+    - **Order-based**: provide ``order_id`` — resolves order and delegates.
+    - **Direct**: provide ``sender_address``, ``receiver_address``, ``parcels``.
+    """
+    provider_slug = body.provider or config.default_provider
+
+    if body.order_id is not None:
+        # Order-based flow
+        if order_resolver is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Order resolver not configured",
+            )
+        order = await order_resolver.resolve(body.order_id)
+        shipment = await flow.create_shipment_from_order(order, provider_slug)
+    elif (
+        body.sender_address is not None
+        and body.receiver_address is not None
+        and body.parcels is not None
+    ):
+        # Direct flow
+        shipment = await flow.create_shipment(
+            provider_slug,
+            sender_address=body.sender_address,
+            receiver_address=body.receiver_address,
+            parcels=body.parcels,
+        )
+    else:
         raise HTTPException(
-            status_code=500,
-            detail="Order resolver not configured",
+            status_code=400,
+            detail=(
+                "Provide either 'order_id' or "
+                "'sender_address', 'receiver_address', and 'parcels'"
+            ),
         )
 
-    provider_slug = body.provider or config.default_provider
-    order = await order_resolver.resolve(body.order_id)
-    shipment = await flow.create_shipment(order, provider_slug)
     return ShipmentResponse.from_shipment(shipment)
 
 

@@ -15,7 +15,9 @@ class DummyProvider(BaseProvider):
     slug = "dummy"
     display_name = "Dummy"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {"external_id": "ext-1", "tracking_number": "trk-1"}
 
     async def create_label(self, **kwargs):
@@ -109,7 +111,9 @@ class CommErrorProvider(BaseProvider):
     slug = "commerr"
     display_name = "CommErr"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {"external_id": "ext-1", "tracking_number": "trk-1"}
 
     async def create_label(self, **kwargs):

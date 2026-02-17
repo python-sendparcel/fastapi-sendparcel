@@ -43,7 +43,14 @@ class DeliverySimProvider(BaseProvider):
     def _base_url(self) -> str:
         return self.get_setting("simulator_base_url", "http://localhost:8000")
 
-    async def create_shipment(self, **kwargs: Any) -> ShipmentCreateResult:
+    async def create_shipment(
+        self,
+        *,
+        sender_address=None,
+        receiver_address=None,
+        parcels=None,
+        **kwargs: Any,
+    ) -> ShipmentCreateResult:
         ext_id = f"sim-{uuid4().hex[:8]}"
         tracking = f"SIM-{ext_id.upper()}"
         _sim_shipments[ext_id] = {

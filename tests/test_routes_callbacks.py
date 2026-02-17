@@ -24,7 +24,9 @@ class CallbackTestProvider(BaseProvider):
     slug = "cbtest"
     display_name = "Callback Test"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {"external_id": "ext-cb", "tracking_number": "TRK-CB"}
 
     async def create_label(self, **kwargs):
@@ -55,7 +57,9 @@ class CommErrorCallbackProvider(BaseProvider):
     slug = "cberr"
     display_name = "CB CommErr"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {"external_id": "ext-cberr", "tracking_number": "TRK-CBERR"}
 
     async def create_label(self, **kwargs):

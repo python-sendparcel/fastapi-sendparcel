@@ -30,9 +30,9 @@ class DemoOrder:
 @dataclass
 class DemoShipment:
     id: str
-    order: DemoOrder
     status: str
     provider: str
+    order_id: str = ""
     external_id: str = ""
     tracking_number: str = ""
     label_url: str = ""
@@ -51,7 +51,7 @@ class InMemoryRepo:
         shipment_id = f"s-{self._counter}"
         shipment = DemoShipment(
             id=shipment_id,
-            order=kwargs["order"],
+            order_id=kwargs.get("order_id", ""),
             provider=kwargs["provider"],
             status=str(kwargs["status"]),
         )
@@ -72,11 +72,7 @@ class InMemoryRepo:
         return shipment
 
     async def list_by_order(self, order_id: str) -> list[DemoShipment]:
-        return [
-            s
-            for s in self.items.values()
-            if hasattr(s.order, "id") and s.order.id == order_id
-        ]
+        return [s for s in self.items.values() if s.order_id == order_id]
 
 
 class OrderResolver:

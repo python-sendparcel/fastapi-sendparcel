@@ -6,10 +6,18 @@ from pydantic import BaseModel
 
 
 class CreateShipmentRequest(BaseModel):
-    """Payload for shipment creation."""
+    """Payload for shipment creation.
 
-    order_id: str
+    Either ``order_id`` (order-based flow) **or** the explicit
+    ``sender_address`` + ``receiver_address`` + ``parcels`` fields
+    (direct flow) must be provided.
+    """
+
+    order_id: str | None = None
     provider: str | None = None
+    sender_address: dict | None = None
+    receiver_address: dict | None = None
+    parcels: list[dict] | None = None
 
 
 class ShipmentResponse(BaseModel):

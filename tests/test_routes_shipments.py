@@ -23,7 +23,9 @@ class ShipmentTestProvider(BaseProvider):
     slug = "shiptest"
     display_name = "Shipment Test"
 
-    async def create_shipment(self, **kwargs):
+    async def create_shipment(
+        self, *, sender_address, receiver_address, parcels, **kwargs
+    ):
         return {"external_id": "ext-1", "tracking_number": "SHIP-001"}
 
     async def create_label(self, **kwargs):
@@ -102,7 +104,7 @@ def test_create_shipment(repository, resolver) -> None:
 
 
 def test_create_shipment_no_resolver(repository) -> None:
-    """No resolver configured returns 500 with 'resolver'."""
+    """No resolver configured + order_id returns 500 with 'resolver'."""
     client = _create_client_no_resolver(repository)
 
     with client:
@@ -110,6 +112,77 @@ def test_create_shipment_no_resolver(repository) -> None:
 
         assert resp.status_code == 500
         assert "resolver" in resp.json()["detail"].lower()
+
+
+def test_create_shipment_direct(repository, resolver) -> None:
+    """POST /shipments with explicit address/parcel data (no order)."""
+    client = _create_client(repository, resolver)
+
+    with client:
+        resp = client.post(
+            "/shipments",
+            json={
+                "sender_address": {"country_code": "PL"},
+                "receiver_address": {"country_code": "DE"},
+                "parcels": [{"weight_kg": "1.0"}],
+            },
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "created"
+        assert body["provider"] == "shiptest"
+        assert body["external_id"] == "ext-1"
+        assert body["tracking_number"] == "SHIP-001"
+
+
+def test_create_shipment_direct_no_resolver(repository) -> None:
+    """Direct flow works even without an order resolver."""
+    client = _create_client_no_resolver(repository)
+
+    with client:
+        resp = client.post(
+            "/shipments",
+            json={
+                "sender_address": {"country_code": "PL"},
+                "receiver_address": {"country_code": "DE"},
+                "parcels": [{"weight_kg": "1.0"}],
+            },
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "created"
+        assert body["provider"] == "shiptest"
+
+
+def test_create_shipment_missing_fields(repository, resolver) -> None:
+    """POST /shipments with neither order_id nor full address data returns 400."""
+    client = _create_client(repository, resolver)
+
+    with client:
+        resp = client.post("/shipments", json={})
+
+        assert resp.status_code == 400
+        assert "order_id" in resp.json()["detail"]
+
+
+def test_create_shipment_partial_address_returns_400(
+    repository, resolver
+) -> None:
+    """Partial address data (missing parcels) returns 400."""
+    client = _create_client(repository, resolver)
+
+    with client:
+        resp = client.post(
+            "/shipments",
+            json={
+                "sender_address": {"country_code": "PL"},
+                "receiver_address": {"country_code": "DE"},
+            },
+        )
+
+        assert resp.status_code == 400
 
 
 def test_create_label(repository, resolver) -> None:
