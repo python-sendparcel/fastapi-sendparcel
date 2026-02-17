@@ -49,6 +49,7 @@ class CallbackRetryModel(Base):
         default=lambda: str(uuid.uuid4()),
     )
     shipment_id: Mapped[str] = mapped_column(String(64), index=True)
+    provider_slug: Mapped[str] = mapped_column(String(64))
     payload: Mapped[dict] = mapped_column(JSON)
     headers: Mapped[dict] = mapped_column(JSON)
     attempts: Mapped[int] = mapped_column(default=0)

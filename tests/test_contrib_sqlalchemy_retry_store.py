@@ -28,6 +28,7 @@ def retry_store(session_factory) -> SQLAlchemyRetryStore:
 async def test_store_failed_callback_returns_id(retry_store) -> None:
     retry_id = await retry_store.store_failed_callback(
         shipment_id="ship-1",
+        provider_slug="test-provider",
         payload={"event": "test"},
         headers={"x-token": "ok"},
     )
@@ -39,6 +40,7 @@ async def test_get_due_retries_returns_pending(session_factory) -> None:
     store = SQLAlchemyRetryStore(session_factory, backoff_seconds=0)
     await store.store_failed_callback(
         shipment_id="ship-1",
+        provider_slug="test-provider",
         payload={"event": "test"},
         headers={},
     )
@@ -57,6 +59,7 @@ async def test_get_due_retries_ignores_future(
     store = SQLAlchemyRetryStore(session_factory, backoff_seconds=9999)
     await store.store_failed_callback(
         shipment_id="ship-1",
+        provider_slug="test-provider",
         payload={},
         headers={},
     )
@@ -68,6 +71,7 @@ async def test_get_due_retries_ignores_future(
 async def test_mark_succeeded(retry_store) -> None:
     retry_id = await retry_store.store_failed_callback(
         shipment_id="ship-1",
+        provider_slug="test-provider",
         payload={},
         headers={},
     )
@@ -81,6 +85,7 @@ async def test_mark_succeeded(retry_store) -> None:
 async def test_mark_failed_increments_attempts(retry_store) -> None:
     retry_id = await retry_store.store_failed_callback(
         shipment_id="ship-1",
+        provider_slug="test-provider",
         payload={},
         headers={},
     )
@@ -95,6 +100,7 @@ async def test_mark_failed_increments_attempts(retry_store) -> None:
 async def test_mark_exhausted(retry_store) -> None:
     retry_id = await retry_store.store_failed_callback(
         shipment_id="ship-1",
+        provider_slug="test-provider",
         payload={},
         headers={},
     )
@@ -108,6 +114,7 @@ async def test_full_lifecycle(retry_store) -> None:
     """Test store -> get_due -> mark_failed -> mark_succeeded lifecycle."""
     retry_id = await retry_store.store_failed_callback(
         shipment_id="ship-1",
+        provider_slug="test-provider",
         payload={"event": "delivered"},
         headers={"x-sig": "abc"},
     )

@@ -26,6 +26,7 @@ class SQLAlchemyRetryStore:
     async def store_failed_callback(
         self,
         shipment_id: str,
+        provider_slug: str,
         payload: dict,
         headers: dict,
     ) -> str:
@@ -33,6 +34,7 @@ class SQLAlchemyRetryStore:
         async with self._session_factory() as session:
             retry = CallbackRetryModel(
                 shipment_id=shipment_id,
+                provider_slug=provider_slug,
                 payload=payload,
                 headers=headers,
                 attempts=0,

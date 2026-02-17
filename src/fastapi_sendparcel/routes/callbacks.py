@@ -61,6 +61,7 @@ async def provider_callback(
             retry_payload["_raw_body"] = raw_body.decode("utf-8")
             await retry_store.store_failed_callback(
                 shipment_id=shipment_id,
+                provider_slug=provider_slug,
                 payload=retry_payload,
                 headers=headers,
             )
