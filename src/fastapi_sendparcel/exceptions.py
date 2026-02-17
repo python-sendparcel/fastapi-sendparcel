@@ -7,15 +7,8 @@ from sendparcel.exceptions import (
     InvalidCallbackError,
     InvalidTransitionError,
     SendParcelException,
+    ShipmentNotFoundError,
 )
-
-
-class ShipmentNotFoundError(Exception):
-    """Shipment with given ID was not found."""
-
-    def __init__(self, shipment_id: str) -> None:
-        self.shipment_id = shipment_id
-        super().__init__(f"Shipment {shipment_id} not found")
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -23,7 +16,27 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     More specific handlers must be registered first so FastAPI
     matches them before the generic SendParcelException handler.
+
+    Handler order (most specific first):
+    1. ShipmentNotFoundError → 404
+    2. CommunicationError → 502
+    3. InvalidCallbackError → 400
+    4. InvalidTransitionError → 409
+    5. SendParcelException → 400 (catch-all)
     """
+
+    @app.exception_handler(ShipmentNotFoundError)
+    async def _not_found(
+        request: Request,
+        exc: ShipmentNotFoundError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "detail": str(exc),
+                "code": "shipment_not_found",
+            },
+        )
 
     @app.exception_handler(CommunicationError)
     async def _communication_error(
@@ -61,19 +74,6 @@ def register_exception_handlers(app: FastAPI) -> None:
             content={
                 "detail": str(exc),
                 "code": "invalid_transition",
-            },
-        )
-
-    @app.exception_handler(ShipmentNotFoundError)
-    async def _not_found(
-        request: Request,
-        exc: ShipmentNotFoundError,
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=404,
-            content={
-                "detail": str(exc),
-                "code": "not_found",
             },
         )
 

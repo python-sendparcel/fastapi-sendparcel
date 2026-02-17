@@ -3,6 +3,7 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
+from sendparcel.exceptions import ShipmentNotFoundError
 from sendparcel.flow import ShipmentFlow
 from sendparcel.protocols import ShipmentRepository
 
@@ -46,7 +47,7 @@ async def process_due_retries(
 
         try:
             shipment = await repository.get_by_id(shipment_id)
-        except KeyError:
+        except ShipmentNotFoundError:
             logger.error(
                 "Retry %s: shipment %s not found, marking exhausted",
                 retry_id,

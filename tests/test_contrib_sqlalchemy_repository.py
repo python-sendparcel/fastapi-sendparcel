@@ -1,7 +1,7 @@
 """SQLAlchemy repository integration tests with real aiosqlite DB."""
 
 import pytest
-from sqlalchemy.exc import NoResultFound
+from sendparcel.exceptions import ShipmentNotFoundError
 
 
 class TestSQLAlchemyShipmentRepository:
@@ -26,7 +26,7 @@ class TestSQLAlchemyShipmentRepository:
         assert fetched.provider == "dummy"
 
     async def test_get_by_id_not_found(self, sqlalchemy_repository) -> None:
-        with pytest.raises(NoResultFound):
+        with pytest.raises(ShipmentNotFoundError):
             await sqlalchemy_repository.get_by_id("nonexistent")
 
     async def test_save(self, sqlalchemy_repository) -> None:

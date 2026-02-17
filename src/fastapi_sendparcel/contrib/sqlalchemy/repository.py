@@ -5,7 +5,10 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from sendparcel.exceptions import ShipmentNotFoundError
 
 from fastapi_sendparcel.contrib.sqlalchemy.models import ShipmentModel
 
@@ -23,8 +26,11 @@ class SQLAlchemyShipmentRepository:
             result = await session.execute(
                 select(ShipmentModel).where(ShipmentModel.id == shipment_id)
             )
-            shipment = result.scalar_one()
-            return shipment
+            try:
+                shipment = result.scalar_one()
+                return shipment
+            except NoResultFound as e:
+                raise ShipmentNotFoundError(shipment_id) from e
 
     async def create(self, **kwargs) -> ShipmentModel:
         shipment = ShipmentModel(
@@ -52,7 +58,7 @@ class SQLAlchemyShipmentRepository:
         async with self.session_factory() as session:
             shipment = await session.get(ShipmentModel, shipment_id)
             if shipment is None:
-                raise KeyError(shipment_id)
+                raise ShipmentNotFoundError(shipment_id)
             shipment.status = status
             for key, value in fields.items():
                 if hasattr(shipment, key):

@@ -84,7 +84,7 @@ def test_shipment_not_found_returns_404() -> None:
     assert resp.status_code == 404
     body = resp.json()
     assert body["detail"] == "Shipment ship-99 not found"
-    assert body["code"] == "not_found"
+    assert body["code"] == "shipment_not_found"
 
 
 def test_generic_sendparcel_exception_returns_400() -> None:

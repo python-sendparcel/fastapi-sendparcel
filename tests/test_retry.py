@@ -3,6 +3,8 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
+from sendparcel.exceptions import ShipmentNotFoundError
+
 import pytest
 from sendparcel.providers.dummy import DummyProvider
 from sendparcel.registry import registry
@@ -135,7 +137,9 @@ class TestProcessDueRetries:
                 "attempts": 0,
             },
         ]
-        mock_repository.get_by_id.side_effect = KeyError("missing-ship")
+        mock_repository.get_by_id.side_effect = ShipmentNotFoundError(
+            "missing-ship"
+        )
 
         result = await process_due_retries(
             retry_store=mock_retry_store,
