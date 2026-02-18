@@ -3,7 +3,13 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sendparcel.exceptions import CommunicationError, InvalidCallbackError
-from sendparcel.provider import BaseProvider
+from sendparcel.provider import (
+    BaseProvider,
+    CancellableProvider,
+    LabelProvider,
+    PullStatusProvider,
+    PushCallbackProvider,
+)
 from sendparcel.registry import registry
 
 from fastapi_sendparcel.config import SendparcelConfig
@@ -17,7 +23,13 @@ _DIRECT_PAYLOAD = {
 }
 
 
-class DummyProvider(BaseProvider):
+class DummyProvider(
+    BaseProvider,
+    LabelProvider,
+    PushCallbackProvider,
+    PullStatusProvider,
+    CancellableProvider,
+):
     slug = "dummy"
     display_name = "Dummy"
 
@@ -110,7 +122,13 @@ def test_invalid_callback_does_not_enqueue_retry(
         assert len(retry_store.events) == 0
 
 
-class CommErrorProvider(BaseProvider):
+class CommErrorProvider(
+    BaseProvider,
+    LabelProvider,
+    PushCallbackProvider,
+    PullStatusProvider,
+    CancellableProvider,
+):
     slug = "commerr"
     display_name = "CommErr"
 

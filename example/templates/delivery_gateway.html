@@ -1,41 +1,96 @@
 {% extends "base.html" %}
-
-{% block title %}Shipment created{% endblock %}
-
+{% block title %}Nowa przesyłka — Demo wysyłek{% endblock %}
 {% block content %}
-<div class="page-header d-print-none">
+<div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
-    <div class="col-auto">
-      <h2 class="page-title">Shipment created</h2>
+    <div class="col">
+      <h2 class="page-title">Nowa przesyłka</h2>
+      <div class="text-secondary">
+        Wypełnij szczegóły przesyłki i wybierz dostawcę.
+      </div>
     </div>
   </div>
 </div>
 
-<div class="card mt-3">
+<div class="card">
   <div class="card-body">
-    <div class="alert alert-success">
-      Shipment <strong>{{ shipment.id }}</strong> has been registered
-      with provider <strong>{{ shipment.provider }}</strong>.
-    </div>
-    <div class="datagrid">
-      <div class="datagrid-item">
-        <div class="datagrid-title">External ID</div>
-        <div class="datagrid-content">{{ shipment.external_id }}</div>
+    <form method="post" action="/shipments/create">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Dostawca</label>
+          <select class="form-select" name="provider" required>
+            {% for slug, name in providers %}
+            <option value="{{ slug }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Rozmiar paczki</label>
+          <select class="form-select" name="package_size" required>
+            <option value="S">S — mała</option>
+            <option value="M" selected>M — średnia</option>
+            <option value="L">L — duża</option>
+          </select>
+        </div>
+
+        <div class="col-12">
+          <hr class="my-2" />
+          <h3 class="mb-3">Nadawca</h3>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Imię i nazwisko</label>
+          <input class="form-control" type="text" name="sender_name" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Ulica</label>
+          <input class="form-control" type="text" name="sender_line1"
+                 placeholder="Ulica, numer" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Miasto</label>
+          <input class="form-control" type="text" name="sender_city" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Kod pocztowy</label>
+          <input class="form-control" type="text" name="sender_postal_code" />
+        </div>
+
+        <div class="col-12">
+          <hr class="my-2" />
+          <h3 class="mb-3">Odbiorca</h3>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Imię i nazwisko</label>
+          <input class="form-control" type="text" name="recipient_name" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Email odbiorcy</label>
+          <input class="form-control" type="email" name="recipient_email" required />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Telefon</label>
+          <input class="form-control" type="text" name="recipient_phone" required />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Ulica</label>
+          <input class="form-control" type="text" name="recipient_line1"
+                 placeholder="Ulica, numer" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Miasto</label>
+          <input class="form-control" type="text" name="recipient_city" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Kod pocztowy</label>
+          <input class="form-control" type="text" name="recipient_postal_code" />
+        </div>
       </div>
-      <div class="datagrid-item">
-        <div class="datagrid-title">Tracking number</div>
-        <div class="datagrid-content">{{ shipment.tracking_number }}</div>
+
+      <div class="mt-4">
+        <button class="btn btn-primary" type="submit">Utwórz przesyłkę</button>
+        <a href="/" class="btn btn-outline-secondary ms-2">Anuluj</a>
       </div>
-    </div>
-    <div class="mt-3">
-      <a class="btn btn-primary"
-         href="/shipments/{{ shipment.id }}">
-        Go to shipment tracking
-      </a>
-      <a class="btn btn-outline-secondary" href="/">
-        Back to shipments
-      </a>
-    </div>
+    </form>
   </div>
 </div>
 {% endblock %}

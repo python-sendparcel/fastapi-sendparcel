@@ -1,89 +1,87 @@
 {% extends "base.html" %}
-
-{% block title %}Shipment {{ shipment.id }}{% endblock %}
-
+{% block title %}Przesyłka #{{ shipment.id }} — Demo wysyłek{% endblock %}
 {% block content %}
-<div class="page-header d-print-none">
+<div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
-    <div class="col-auto">
-      <a href="/" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back</a>
-      <h2 class="page-title">Shipment {{ shipment.id }}</h2>
+    <div class="col">
+      <div class="page-pretitle">Przesyłka</div>
+      <h2 class="page-title">#{{ shipment.id }}</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <a href="/" class="btn btn-outline-secondary">
+        Wróć do przesyłek
+      </a>
     </div>
   </div>
 </div>
 
-<div class="card mt-3" id="shipment-card">
-  <div class="card-header">
-    <h3 class="card-title">Shipment status</h3>
-  </div>
-  <div class="card-body">
-    <div class="datagrid">
-      <div class="datagrid-item">
-        <div class="datagrid-title">Status</div>
-        <div class="datagrid-content">
-          <span class="badge
-            {% if shipment.status == 'delivered' %}bg-success
-            {% elif shipment.status == 'in_transit' or shipment.status == 'out_for_delivery' %}bg-info
-            {% elif shipment.status == 'cancelled' or shipment.status == 'failed' %}bg-danger
-            {% else %}bg-secondary
-            {% endif %}">
-            {{ shipment.status }}
-          </span>
-        </div>
+<div class="row row-deck row-cards">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Szczegóły przesyłki</h3>
       </div>
-      <div class="datagrid-item">
-        <div class="datagrid-title">Provider</div>
-        <div class="datagrid-content">{{ shipment.provider }}</div>
-      </div>
-      <div class="datagrid-item">
-        <div class="datagrid-title">External ID</div>
-        <div class="datagrid-content">{{ shipment.external_id }}</div>
-      </div>
-      <div class="datagrid-item">
-        <div class="datagrid-title">Tracking number</div>
-        <div class="datagrid-content">{{ shipment.tracking_number }}</div>
-      </div>
-      <div class="datagrid-item">
-        <div class="datagrid-title">Label</div>
-        <div class="datagrid-content">
-          {% if shipment.label_url %}
-          <a href="{{ shipment.label_url }}" target="_blank">Download label</a>
-          {% else %}
-          <span class="text-muted">None</span>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Referencja:</dt>
+          <dd class="col-7">{{ shipment.reference_id or "—" }}</dd>
+          <dt class="col-5">Status:</dt>
+          <dd class="col-7">
+            <span id="shipment-status"
+                  class="badge bg-{{ status_color(shipment.status) }}">
+              {{ status_label(shipment.status) }}
+            </span>
+          </dd>
+          <dt class="col-5">Dostawca:</dt>
+          <dd class="col-7">{{ shipment.provider }}</dd>
+          <dt class="col-5">ID zewnętrzne:</dt>
+          <dd class="col-7">{{ shipment.external_id or "—" }}</dd>
+          <dt class="col-5">Numer przewozowy:</dt>
+          <dd class="col-7">{{ shipment.tracking_number or "—" }}</dd>
+          <dt class="col-5">Etykieta:</dt>
+          <dd class="col-7">
+            {% if shipment.label_url %}
+            <a href="{{ shipment.label_url }}" class="btn btn-sm btn-outline-primary">
+              Pobierz etykietę
+            </a>
+            {% else %}
+            —
+            {% endif %}
+          </dd>
+        </dl>
+
+        <div class="mt-3">
+          <button class="btn btn-sm btn-outline-info"
+                  hx-get="/shipments/{{ shipment.id }}/refresh-status"
+                  hx-target="#shipment-status"
+                  hx-swap="outerHTML">
+            Odśwież status
+          </button>
+          {% if shipment.status in ("new", "created", "label_ready") %}
+          <form method="post" action="/shipments/{{ shipment.id }}/create-label"
+                class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-success">
+              Wygeneruj etykietę
+            </button>
+          </form>
           {% endif %}
         </div>
       </div>
     </div>
   </div>
-</div>
 
-{% if shipment.status not in ('delivered', 'cancelled', 'failed', 'returned') %}
-<div class="card mt-3">
-  <div class="card-header">
-    <h3 class="card-title">Delivery simulator</h3>
-  </div>
-  <div class="card-body">
-    <p class="text-muted">
-      Click the button to advance to the next delivery stage.
-      The simulator will send an HTTP callback to the application.
-    </p>
-    <div id="sim-result"></div>
-    <form hx-post="/sim/advance/{{ shipment.external_id }}"
-          hx-target="#sim-result"
-          hx-swap="innerHTML">
-      <button class="btn btn-warning" type="submit">
-        Next delivery stage
-      </button>
-    </form>
-    <div class="mt-2">
-      <a class="btn btn-outline-secondary btn-sm"
-         hx-get="/shipments/{{ shipment.id }}"
-         hx-target="body"
-         hx-push-url="true">
-        Refresh status
-      </a>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Symulator dostawy</h3>
+      </div>
+      <div class="card-body" id="sim-panel"
+           hx-get="/sim/panel/{{ shipment.id }}"
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        <div class="text-secondary">Ładowanie panelu symulatora...</div>
+      </div>
     </div>
   </div>
 </div>
-{% endif %}
 {% endblock %}

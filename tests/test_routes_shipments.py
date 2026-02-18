@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sendparcel.provider import BaseProvider
+from sendparcel.provider import (
+    BaseProvider,
+    CancellableProvider,
+    LabelProvider,
+    PullStatusProvider,
+)
 from sendparcel.registry import registry
 
 from fastapi_sendparcel.config import SendparcelConfig
@@ -17,7 +22,12 @@ from fastapi_sendparcel.routes.shipments import router
 # ---------------------------------------------------------------------------
 
 
-class ShipmentTestProvider(BaseProvider):
+class ShipmentTestProvider(
+    BaseProvider,
+    LabelProvider,
+    PullStatusProvider,
+    CancellableProvider,
+):
     """Deterministic provider for shipment route tests."""
 
     slug = "shiptest"

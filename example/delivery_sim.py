@@ -1,47 +1,53 @@
-"""Fake delivery provider with HTTP simulator endpoints."""
+"""Simulated delivery provider with control panel routes."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, ClassVar
 from uuid import uuid4
 
-import httpx
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Form
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from sendparcel.fsm import STATUS_TO_CALLBACK
-from sendparcel.provider import BaseProvider
+from sendparcel.enums import ShipmentStatus
+from sendparcel.provider import (
+    BaseProvider,
+    CancellableProvider,
+    LabelProvider,
+    PullStatusProvider,
+)
 from sendparcel.types import (
     LabelInfo,
     ShipmentCreateResult,
     ShipmentStatusResponse,
 )
 
+# --- Templates setup ---
+
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
 # --- Simulator state (in-memory, ephemeral) ---
 
-STATUS_PROGRESSION = [
-    "created",
-    "label_ready",
-    "in_transit",
-    "out_for_delivery",
-    "delivered",
-]
-
-_sim_shipments: dict[str, dict[str, Any]] = {}
-
-# --- Provider implementation ---
+# In-memory store for simulator state keyed by shipment.id
+_sim_state: dict[str, str] = {}
 
 
-class DeliverySimProvider(BaseProvider):
-    """Provider that delegates to the local delivery simulator endpoints."""
+class DeliverySimProvider(
+    BaseProvider,
+    LabelProvider,
+    PullStatusProvider,
+    CancellableProvider,
+):
+    """Simulated delivery provider for the example app."""
 
     slug: ClassVar[str] = "delivery-sim"
-    display_name: ClassVar[str] = "Delivery Simulator"
+    display_name: ClassVar[str] = "Symulator dostawy"
     supported_countries: ClassVar[list[str]] = ["PL"]
     supported_services: ClassVar[list[str]] = ["standard"]
-    user_selectable: ClassVar[bool] = False
-
-    def _base_url(self) -> str:
-        return self.get_setting("simulator_base_url", "http://localhost:8000")
+    user_selectable: ClassVar[bool] = True
 
     async def create_shipment(
         self,
@@ -51,68 +57,91 @@ class DeliverySimProvider(BaseProvider):
         parcels=None,
         **kwargs: Any,
     ) -> ShipmentCreateResult:
-        ext_id = f"sim-{uuid4().hex[:8]}"
-        tracking = f"SIM-{ext_id.upper()}"
-        _sim_shipments[ext_id] = {
-            "external_id": ext_id,
-            "tracking_number": tracking,
-            "status": "created",
-            "shipment_id": str(self.shipment.id),
-            "label_url": "",
-        }
+        shipment_id = str(self.shipment.id)
+        tracking = f"SIM-{uuid4().hex[:8].upper()}"
+        _sim_state[shipment_id] = ShipmentStatus.CREATED
         return ShipmentCreateResult(
-            external_id=ext_id,
+            external_id=f"sim-{shipment_id}",
             tracking_number=tracking,
         )
 
     async def create_label(self, **kwargs: Any) -> LabelInfo:
-        ext_id = self.shipment.external_id
-        entry = _sim_shipments.get(ext_id)
-        if entry is None:
-            return LabelInfo(format="PDF", url="")
-        label_url = f"{self._base_url()}/delivery-sim/label/{ext_id}"
-        entry["label_url"] = label_url
-        return LabelInfo(format="PDF", url=label_url)
-
-    async def verify_callback(
-        self, data: dict, headers: dict, **kwargs: Any
-    ) -> None:
-        pass  # Simulator callbacks are always trusted
-
-    async def handle_callback(
-        self, data: dict, headers: dict, **kwargs: Any
-    ) -> None:
-        status_value = data.get("status")
-        if not status_value:
-            return
-
-        callback = STATUS_TO_CALLBACK.get(str(status_value), str(status_value))
-        trigger = getattr(self.shipment, callback, None)
-        may_trigger = getattr(self.shipment, "may_trigger", None)
-        if trigger is None or may_trigger is None:
-            return
-        if may_trigger(callback):
-            trigger()
+        shipment_id = str(self.shipment.id)
+        _sim_state[shipment_id] = ShipmentStatus.LABEL_READY
+        return LabelInfo(
+            format="PDF",
+            url=f"/sim/label/{shipment_id}.pdf",
+        )
 
     async def fetch_shipment_status(
         self, **kwargs: Any
     ) -> ShipmentStatusResponse:
-        ext_id = self.shipment.external_id
-        entry = _sim_shipments.get(ext_id)
-        if entry is None:
-            return ShipmentStatusResponse(status=self.shipment.status)
-        return ShipmentStatusResponse(status=entry["status"])
+        shipment_id = str(self.shipment.id)
+        current = _sim_state.get(shipment_id, str(self.shipment.status))
+        return ShipmentStatusResponse(status=current)
 
     async def cancel_shipment(self, **kwargs: Any) -> bool:
-        ext_id = self.shipment.external_id
-        entry = _sim_shipments.get(ext_id)
-        if entry is None:
-            return False
-        entry["status"] = "cancelled"
+        shipment_id = str(self.shipment.id)
+        _sim_state[shipment_id] = ShipmentStatus.CANCELLED
         return True
 
 
+# --- Status progression helpers ---
+
+# Allowed forward transitions for the control panel
+_NEXT_STATUSES: dict[str, list[str]] = {
+    ShipmentStatus.CREATED: [
+        ShipmentStatus.LABEL_READY,
+        ShipmentStatus.CANCELLED,
+        ShipmentStatus.FAILED,
+    ],
+    ShipmentStatus.LABEL_READY: [
+        ShipmentStatus.IN_TRANSIT,
+        ShipmentStatus.CANCELLED,
+        ShipmentStatus.FAILED,
+    ],
+    ShipmentStatus.IN_TRANSIT: [
+        ShipmentStatus.OUT_FOR_DELIVERY,
+        ShipmentStatus.DELIVERED,
+        ShipmentStatus.RETURNED,
+        ShipmentStatus.FAILED,
+    ],
+    ShipmentStatus.OUT_FOR_DELIVERY: [
+        ShipmentStatus.DELIVERED,
+        ShipmentStatus.RETURNED,
+        ShipmentStatus.FAILED,
+    ],
+}
+
+# Human-readable status labels
+STATUS_LABELS: dict[str, str] = {
+    ShipmentStatus.NEW: "Nowa",
+    ShipmentStatus.CREATED: "Utworzona",
+    ShipmentStatus.LABEL_READY: "Etykieta gotowa",
+    ShipmentStatus.IN_TRANSIT: "W transporcie",
+    ShipmentStatus.OUT_FOR_DELIVERY: "W doręczeniu",
+    ShipmentStatus.DELIVERED: "Doręczona",
+    ShipmentStatus.CANCELLED: "Anulowana",
+    ShipmentStatus.FAILED: "Błąd",
+    ShipmentStatus.RETURNED: "Zwrócona",
+}
+
+
+def get_sim_status(shipment_id: str) -> str:
+    """Get current simulator status for a shipment."""
+    return _sim_state.get(shipment_id, ShipmentStatus.NEW)
+
+
+def get_next_statuses(current: str) -> list[str]:
+    """Get list of allowed next statuses from current."""
+    return _NEXT_STATUSES.get(current, [])
+
+
+# --- PDF label generation helpers ---
+
+
 def _pdf_escape(value: str) -> str:
+    """Escape special PDF string characters."""
     return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
@@ -163,101 +192,80 @@ def _build_label_pdf(text: str) -> bytes:
 
 # --- Simulator API endpoints ---
 
-sim_router = APIRouter(prefix="/delivery-sim", tags=["delivery-sim"])
+sim_router = APIRouter()
 
 
-class SimRegisterResponse(BaseModel):
-    external_id: str
-    tracking_number: str
-
-
-class SimStatusResponse(BaseModel):
-    external_id: str
+class SimAdvanceRequest(BaseModel):
     status: str
 
 
-class SimAdvanceResponse(BaseModel):
-    external_id: str
-    previous_status: str
-    new_status: str
-    callback_sent: bool
-
-
-@sim_router.get("/status/{ext_id}", response_model=SimStatusResponse)
-async def sim_get_status(ext_id: str) -> SimStatusResponse:
-    """Return current status of a simulated shipment."""
-    entry = _sim_shipments.get(ext_id)
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Unknown shipment")
-    return SimStatusResponse(
-        external_id=ext_id,
-        status=entry["status"],
+@sim_router.get("/sim/panel/{shipment_id}", response_class=HTMLResponse)
+async def sim_panel(request: Request, shipment_id: int) -> HTMLResponse:
+    """Render simulator control panel partial (HTMX target)."""
+    sid = str(shipment_id)
+    current = get_sim_status(sid)
+    next_options = get_next_statuses(current)
+    return templates.TemplateResponse(
+        request,
+        "partials/sim_panel.html",
+        {
+            "shipment_id": shipment_id,
+            "current_status": current,
+            "current_label": STATUS_LABELS.get(current, current),
+            "next_options": [
+                {"value": s, "label": STATUS_LABELS.get(s, s)}
+                for s in next_options
+            ],
+        },
     )
 
 
-@sim_router.get("/label/{ext_id}")
-async def sim_get_label(ext_id: str) -> Response:
+@sim_router.post("/sim/advance/{shipment_id}", response_class=HTMLResponse)
+async def sim_advance(
+    request: Request, shipment_id: int, status: str = Form(None)
+) -> HTMLResponse:
+    """Advance simulator status for a shipment (HTMX)."""
+
+    if status is None:
+        # Fallback if Form() doesn't catch it
+        form = await request.form()
+        status = str(form.get("status", ""))
+
+    sid = str(shipment_id)
+    current = get_sim_status(sid)
+    allowed = get_next_statuses(current)
+
+    if status and status in allowed:
+        _sim_state[sid] = status
+
+    current = get_sim_status(sid)
+    next_options = get_next_statuses(current)
+    return templates.TemplateResponse(
+        request,
+        "partials/sim_panel.html",
+        {
+            "shipment_id": shipment_id,
+            "current_status": current,
+            "current_label": STATUS_LABELS.get(current, current),
+            "next_options": [
+                {"value": s, "label": STATUS_LABELS.get(s, s)}
+                for s in next_options
+            ],
+        },
+    )
+
+
+@sim_router.get("/sim/label/{shipment_id}")
+async def sim_label(shipment_id: str) -> Response:
     """Return a generated PDF label for a simulated shipment."""
-    entry = _sim_shipments.get(ext_id)
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Unknown shipment")
-    label_text = f"Shipment label {ext_id}"
+    # Strip .pdf extension if present (URL pattern is /sim/label/{id}.pdf)
+    clean_id = shipment_id.removesuffix(".pdf")
+    label_text = f"Shipment label {clean_id}"
     pdf_bytes = _build_label_pdf(label_text)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="label-{ext_id}.pdf"'
+            "Content-Disposition": f'inline; filename="label-{clean_id}.pdf"'
         },
-    )
-
-
-@sim_router.post("/advance/{ext_id}", response_model=SimAdvanceResponse)
-async def sim_advance_status(ext_id: str) -> SimAdvanceResponse:
-    """Advance shipment to next status and send callback to the main app."""
-    entry = _sim_shipments.get(ext_id)
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Unknown shipment")
-
-    current = entry["status"]
-    if current not in STATUS_PROGRESSION:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot advance from status: {current}",
-        )
-
-    current_idx = STATUS_PROGRESSION.index(current)
-    if current_idx >= len(STATUS_PROGRESSION) - 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Shipment is already in a terminal state",
-        )
-
-    new_status = STATUS_PROGRESSION[current_idx + 1]
-    previous = current
-    entry["status"] = new_status
-
-    # Send HTTP callback to the main app
-    shipment_id = entry["shipment_id"]
-    callback_url = (
-        f"http://localhost:8000/api/shipping"
-        f"/callbacks/delivery-sim/{shipment_id}"
-    )
-    callback_sent = False
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                callback_url,
-                json={"status": new_status},
-                timeout=5.0,
-            )
-            callback_sent = resp.status_code == 200
-    except httpx.HTTPError:
-        callback_sent = False
-
-    return SimAdvanceResponse(
-        external_id=ext_id,
-        previous_status=previous,
-        new_status=new_status,
-        callback_sent=callback_sent,
     )

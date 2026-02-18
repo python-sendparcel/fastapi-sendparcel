@@ -5,7 +5,13 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sendparcel.exceptions import InvalidCallbackError
-from sendparcel.provider import BaseProvider
+from sendparcel.provider import (
+    BaseProvider,
+    CancellableProvider,
+    LabelProvider,
+    PullStatusProvider,
+    PushCallbackProvider,
+)
 from sendparcel.registry import registry
 
 from conftest import InMemoryRepo, RetryStore
@@ -24,7 +30,13 @@ _DIRECT_PAYLOAD = {
 }
 
 
-class _IntegrationProvider(BaseProvider):
+class _IntegrationProvider(
+    BaseProvider,
+    LabelProvider,
+    PushCallbackProvider,
+    PullStatusProvider,
+    CancellableProvider,
+):
     """Provider for end-to-end integration tests with full lifecycle control."""
 
     slug = "intprovider"

@@ -64,11 +64,12 @@ class RetryStore:
         self.events: list[dict] = []
 
     async def store_failed_callback(
-        self, shipment_id: str, payload: dict, headers: dict
+        self, shipment_id: str, provider_slug: str, payload: dict, headers: dict
     ) -> str:
         self.events.append(
             {
                 "shipment_id": shipment_id,
+                "provider_slug": provider_slug,
                 "payload": payload,
                 "headers": headers,
             }

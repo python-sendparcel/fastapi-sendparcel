@@ -1,0 +1,21 @@
+<div id="sim-panel-inner">
+  <p class="mb-2">
+    Aktualny status:
+    <span class="badge bg-blue">{{ current_label }}</span>
+  </p>
+  {% if next_options %}
+  <div class="btn-list">
+    {% for opt in next_options %}
+    <button class="btn btn-sm btn-outline-primary"
+            hx-post="/sim/advance/{{ shipment_id }}"
+            hx-vals='{"status": "{{ opt.value }}"}'
+            hx-target="#sim-panel"
+            hx-swap="innerHTML">
+      → {{ opt.label }}
+    </button>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">Status końcowy — brak dalszych kroków.</p>
+  {% endif %}
+</div>

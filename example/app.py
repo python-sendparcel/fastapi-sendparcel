@@ -2,93 +2,87 @@
 
 from __future__ import annotations
 
-import contextlib
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
-from decimal import Decimal, InvalidOperation
+from contextlib import asynccontextmanager, suppress
+from decimal import Decimal
 from pathlib import Path
 
 from delivery_sim import (
-    STATUS_PROGRESSION,
+    STATUS_LABELS,
     DeliverySimProvider,
-    _sim_shipments,
     sim_router,
 )
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sendparcel.enums import ShipmentStatus
+from sendparcel.exceptions import InvalidTransitionError
 from sendparcel.flow import ShipmentFlow
+from sendparcel.registry import registry
 from sendparcel.types import AddressInfo, ParcelInfo
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
+from sqlalchemy import func, select
+
+from models import (
+    Shipment,
+    ShipmentRepository,
+    async_session,
+    init_db,
 )
 
-from fastapi_sendparcel import (
-    FastAPIPluginRegistry,
-    SendparcelConfig,
-    create_shipping_router,
-)
-from fastapi_sendparcel.contrib.sqlalchemy.models import Base, ShipmentModel
-from fastapi_sendparcel.contrib.sqlalchemy.repository import (
-    SQLAlchemyShipmentRepository,
-)
-from fastapi_sendparcel.contrib.sqlalchemy.retry_store import (
-    SQLAlchemyRetryStore,
-)
+# --- Register the simulator provider ---
+registry.register(DeliverySimProvider)
 
-# --- Database setup ---
+# --- Weight presets ---
+WEIGHT_BY_SIZE: dict[str, Decimal] = {
+    "S": Decimal("0.5"),
+    "M": Decimal("1.0"),
+    "L": Decimal("2.5"),
+}
 
-DATABASE_URL = "sqlite+aiosqlite:///./example.db"
-engine = create_async_engine(DATABASE_URL, echo=False)
-async_session = async_sessionmaker(engine, class_=AsyncSession)
 
-# --- Plugin registry ---
+# --- Template helpers ---
+def status_label(status: str) -> str:
+    """Human-readable label for a shipment status."""
+    return STATUS_LABELS.get(status, status)
 
-plugin_registry = FastAPIPluginRegistry()
-plugin_registry.register(DeliverySimProvider)
 
-# --- Library integration ---
+def status_color(status: str) -> str:
+    """Tabler badge color for a shipment status."""
+    colors: dict[str, str] = {
+        ShipmentStatus.NEW: "secondary",
+        ShipmentStatus.CREATED: "info",
+        ShipmentStatus.LABEL_READY: "cyan",
+        ShipmentStatus.IN_TRANSIT: "blue",
+        ShipmentStatus.OUT_FOR_DELIVERY: "indigo",
+        ShipmentStatus.DELIVERED: "success",
+        ShipmentStatus.CANCELLED: "warning",
+        ShipmentStatus.FAILED: "danger",
+        ShipmentStatus.RETURNED: "orange",
+    }
+    return colors.get(status, "secondary")
 
-config = SendparcelConfig(
-    default_provider="delivery-sim",
-    providers={
-        "delivery-sim": {
-            "simulator_base_url": "http://localhost:8000",
-        },
-    },
-)
-repository = SQLAlchemyShipmentRepository(async_session)
-retry_store = SQLAlchemyRetryStore(async_session)
-
-shipping_router = create_shipping_router(
-    config=config,
-    repository=repository,
-    registry=plugin_registry,
-    retry_store=retry_store,
-)
 
 # --- FastAPI app ---
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
+# Add helpers to templates
+templates.env.globals["status_label"] = status_label
+templates.env.globals["status_color"] = status_color
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await init_db()
     yield
-    await engine.dispose()
 
 
 app = FastAPI(
     title="fastapi-sendparcel demo",
     lifespan=lifespan,
 )
-app.include_router(shipping_router, prefix="/api/shipping")
 app.include_router(sim_router)
 
 
@@ -100,24 +94,31 @@ async def home(request: Request) -> HTMLResponse:
     """List shipments."""
     async with async_session() as session:
         result = await session.execute(
-            select(ShipmentModel).order_by(ShipmentModel.created_at.desc())
+            select(Shipment).order_by(Shipment.id.desc())
         )
         shipments = result.scalars().all()
-    providers = plugin_registry.get_choices()
+
+        return templates.TemplateResponse(
+            request, "home.html", {"shipments": shipments}
+        )
+
+
+@app.get("/shipments/new", response_class=HTMLResponse)
+async def shipment_new(request: Request) -> HTMLResponse:
+    """Render new shipment form."""
+    providers = registry.get_choices()
+    print(f"DEBUG: Providers: {providers}")
     return templates.TemplateResponse(
-        request, "home.html", {"shipments": shipments, "providers": providers}
+        request, "delivery_gateway.html", {"providers": providers}
     )
 
 
-@app.post("/shipments")
-async def create_shipment_view(
+@app.post("/shipments/create", response_class=RedirectResponse)
+async def shipment_create(
     request: Request,
-    description: str = Form(""),
-    total_weight: str = Form("1.0"),
-    provider: str = Form("delivery-sim"),
+    provider: str = Form(...),
+    package_size: str = Form("M"),
     sender_name: str = Form(""),
-    sender_email: str = Form(""),
-    sender_phone: str = Form(""),
     sender_line1: str = Form(""),
     sender_city: str = Form(""),
     sender_postal_code: str = Form(""),
@@ -127,17 +128,12 @@ async def create_shipment_view(
     recipient_line1: str = Form(""),
     recipient_city: str = Form(""),
     recipient_postal_code: str = Form(""),
-) -> HTMLResponse:
-    """Create a new shipment directly via ShipmentFlow."""
-    try:
-        weight = Decimal(total_weight)
-    except (InvalidOperation, ValueError):
-        weight = Decimal("1.0")
+) -> RedirectResponse:
+    """Create a new shipment."""
+    weight = WEIGHT_BY_SIZE.get(package_size, Decimal("1.0"))
 
     sender_address = AddressInfo(
         name=sender_name,
-        email=sender_email,
-        phone=sender_phone,
         line1=sender_line1,
         city=sender_city,
         postal_code=sender_postal_code,
@@ -154,77 +150,86 @@ async def create_shipment_view(
     )
     parcels = [ParcelInfo(weight_kg=weight)]
 
-    flow = ShipmentFlow(repository=repository, config=config.providers)
-    shipment = await flow.create_shipment(
-        provider,
-        sender_address=sender_address,
-        receiver_address=receiver_address,
-        parcels=parcels,
-        reference_id=description or "",
-    )
-    shipment = await flow.create_label(shipment)
+    async with async_session() as session:
+        count_result = await session.execute(select(func.count(Shipment.id)))
+        count = count_result.scalar() or 0
+        reference_id = f"SHP-{count + 1:04d}"
 
-    return templates.TemplateResponse(
-        request,
-        "delivery_gateway.html",
-        {"shipment": shipment},
-    )
+        repo = ShipmentRepository(session)
+        flow = ShipmentFlow(repository=repo)
+        shipment = await flow.create_shipment(
+            provider,
+            sender_address=sender_address,
+            receiver_address=receiver_address,
+            parcels=parcels,
+            reference_id=reference_id,
+        )
+
+        # Store address and parcel data on the example model
+        shipment.sender_name = sender_name
+        shipment.sender_street = sender_line1
+        shipment.sender_city = sender_city
+        shipment.sender_postal_code = sender_postal_code
+        shipment.receiver_name = recipient_name
+        shipment.receiver_street = recipient_line1
+        shipment.receiver_city = recipient_city
+        shipment.receiver_postal_code = recipient_postal_code
+        shipment.weight = weight
+
+        with suppress(NotImplementedError):
+            shipment = await flow.create_label(shipment)
+
+        await session.commit()
+        return RedirectResponse(
+            url=f"/shipments/{shipment.id}", status_code=303
+        )
 
 
 @app.get("/shipments/{shipment_id}", response_class=HTMLResponse)
-async def shipment_detail(request: Request, shipment_id: str) -> HTMLResponse:
-    """Shipment details with tracking."""
-    shipment = await repository.get_by_id(shipment_id)
-    return templates.TemplateResponse(
-        request,
-        "shipment_detail.html",
-        {"shipment": shipment},
-    )
+async def shipment_detail(request: Request, shipment_id: int) -> HTMLResponse:
+    """Shipment details."""
+    async with async_session() as session:
+        shipment = await session.get(Shipment, shipment_id)
+        if shipment is None:
+            return HTMLResponse("Nie znaleziono przesyłki", status_code=404)
 
-
-@app.post("/sim/advance/{ext_id}", response_class=HTMLResponse)
-async def advance_delivery(request: Request, ext_id: str) -> HTMLResponse:
-    """Proxy: advance delivery sim and return result fragment for HTMX."""
-    entry = _sim_shipments.get(ext_id)
-    if entry is None:
-        return HTMLResponse(
-            '<div class="alert alert-danger">'
-            "Unknown shipment in simulator</div>",
-            status_code=404,
+        return templates.TemplateResponse(
+            request,
+            "shipment_detail.html",
+            {"shipment": shipment},
         )
 
-    current = entry["status"]
-    if current not in STATUS_PROGRESSION:
-        return HTMLResponse(
-            f'<div class="alert alert-warning">'
-            f"Cannot advance from status: {current}</div>",
+
+@app.post(
+    "/shipments/{shipment_id}/create-label", response_class=RedirectResponse
+)
+async def shipment_create_label(shipment_id: int) -> RedirectResponse:
+    """Generate label for shipment."""
+    async with async_session() as session:
+        repo = ShipmentRepository(session)
+        flow = ShipmentFlow(repository=repo)
+        shipment = await repo.get_by_id(str(shipment_id))
+        with suppress(NotImplementedError):
+            shipment = await flow.create_label(shipment)
+        await session.commit()
+    return RedirectResponse(url=f"/shipments/{shipment_id}", status_code=303)
+
+
+@app.get("/shipments/{shipment_id}/refresh-status", response_class=HTMLResponse)
+async def shipment_refresh_status(
+    request: Request, shipment_id: int
+) -> HTMLResponse:
+    """HTMX endpoint: fetch latest status and return badge HTML."""
+    async with async_session() as session:
+        repo = ShipmentRepository(session)
+        flow = ShipmentFlow(repository=repo)
+        shipment = await repo.get_by_id(str(shipment_id))
+        with suppress(InvalidTransitionError):
+            shipment = await flow.fetch_and_update_status(shipment)
+        await session.commit()
+
+        return templates.TemplateResponse(
+            request,
+            "partials/status_badge.html",
+            {"shipment": shipment},
         )
-
-    current_idx = STATUS_PROGRESSION.index(current)
-    if current_idx >= len(STATUS_PROGRESSION) - 1:
-        return HTMLResponse(
-            '<div class="alert alert-info">'
-            "Shipment is already in a terminal state</div>",
-        )
-
-    new_status = STATUS_PROGRESSION[current_idx + 1]
-    previous = current
-    entry["status"] = new_status
-
-    # Send callback to the shipping router (same app, via internal call)
-    shipment_id = entry["shipment_id"]
-    flow = ShipmentFlow(repository=repository, config=config.providers)
-    shipment = await repository.get_by_id(shipment_id)
-
-    with contextlib.suppress(Exception):
-        shipment = await flow.handle_callback(
-            shipment,
-            {"status": new_status},
-            {},
-        )
-
-    return HTMLResponse(
-        f'<div class="alert alert-success">'
-        f"Status changed: <strong>{previous}</strong> → "
-        f"<strong>{new_status}</strong></div>",
-    )

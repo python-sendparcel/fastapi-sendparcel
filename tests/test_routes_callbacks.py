@@ -6,7 +6,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sendparcel.exceptions import CommunicationError, InvalidCallbackError
-from sendparcel.provider import BaseProvider
+from sendparcel.provider import (
+    BaseProvider,
+    CancellableProvider,
+    LabelProvider,
+    PullStatusProvider,
+    PushCallbackProvider,
+)
 from sendparcel.registry import registry
 
 from fastapi_sendparcel.config import SendparcelConfig
@@ -24,7 +30,13 @@ _DIRECT_PAYLOAD = {
 }
 
 
-class CallbackTestProvider(BaseProvider):
+class CallbackTestProvider(
+    BaseProvider,
+    LabelProvider,
+    PushCallbackProvider,
+    PullStatusProvider,
+    CancellableProvider,
+):
     """Provider that verifies callbacks via x-test-token header."""
 
     slug = "cbtest"
@@ -57,7 +69,13 @@ class CallbackTestProvider(BaseProvider):
         return True
 
 
-class CommErrorCallbackProvider(BaseProvider):
+class CommErrorCallbackProvider(
+    BaseProvider,
+    LabelProvider,
+    PushCallbackProvider,
+    PullStatusProvider,
+    CancellableProvider,
+):
     """Provider whose handle_callback always raises CommunicationError."""
 
     slug = "cberr"

@@ -1,147 +1,62 @@
 {% extends "base.html" %}
-
-{% block title %}Shipments{% endblock %}
-
+{% block title %}Strona główna — Demo wysyłek{% endblock %}
 {% block content %}
-<div class="page-header d-print-none">
+<div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
     <div class="col-auto">
-      <h2 class="page-title">Shipments</h2>
+      <h2 class="page-title">Przesyłki</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <a href="/shipments/new" class="btn btn-primary">Nowa przesyłka</a>
     </div>
   </div>
 </div>
 
-<div class="card mt-3">
-  <div class="card-header">
-    <h3 class="card-title">New shipment</h3>
-  </div>
-  <div class="card-body">
-    <form method="post" action="/shipments">
-      <div class="row g-3">
-        <div class="col-md-4">
-          <label class="form-label">Description</label>
-          <input class="form-control" type="text" name="description"
-                 placeholder="e.g. Package with books" required />
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Weight (kg)</label>
-          <input class="form-control" type="number" name="total_weight"
-                 min="0.1" step="0.1" value="1.0" required />
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Provider</label>
-          <select class="form-select" name="provider" required>
-            {% for slug, name in providers %}
-            <option value="{{ slug }}">{{ name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-4">
-          <label class="form-label">Sender — full name</label>
-          <input class="form-control" type="text" name="sender_name" required />
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Sender — email</label>
-          <input class="form-control" type="email" name="sender_email" required />
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Sender — phone</label>
-          <input class="form-control" type="text" name="sender_phone" />
-        </div>
-      </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-6">
-          <label class="form-label">Sender — address</label>
-          <input class="form-control" type="text" name="sender_line1"
-                 placeholder="1 Example St" />
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">City</label>
-          <input class="form-control" type="text" name="sender_city" />
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Postal code</label>
-          <input class="form-control" type="text" name="sender_postal_code" />
-        </div>
-      </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-4">
-          <label class="form-label">Recipient — full name</label>
-          <input class="form-control" type="text" name="recipient_name" required />
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Recipient — email</label>
-          <input class="form-control" type="email" name="recipient_email" required />
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Recipient — phone</label>
-          <input class="form-control" type="text" name="recipient_phone" />
-        </div>
-      </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-6">
-          <label class="form-label">Recipient — address</label>
-          <input class="form-control" type="text" name="recipient_line1"
-                 placeholder="5 Destination St" />
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">City</label>
-          <input class="form-control" type="text" name="recipient_city" />
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Postal code</label>
-          <input class="form-control" type="text" name="recipient_postal_code" />
-        </div>
-      </div>
-      <div class="mt-3">
-        <button class="btn btn-primary" type="submit">Create shipment</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 {% if shipments %}
-<div class="card mt-3">
-  <div class="card-header">
-    <h3 class="card-title">Shipment list</h3>
-  </div>
+<div class="card">
   <div class="table-responsive">
     <table class="table table-vcenter card-table">
       <thead>
         <tr>
           <th>ID</th>
-          <th>Provider</th>
+          <th>Referencja</th>
+          <th>Dostawca</th>
+          <th>Odbiorca</th>
           <th>Status</th>
-          <th>Tracking</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for shipment in shipments %}
         <tr>
-          <td>{{ shipment.id[:12] }}…</td>
+          <td>{{ shipment.id }}</td>
+          <td>{{ shipment.reference_id or "—" }}</td>
           <td>{{ shipment.provider }}</td>
+          <td>{{ shipment.receiver_name or "—" }}</td>
           <td>
-            <span class="badge
-              {% if shipment.status == 'delivered' %}bg-success
-              {% elif shipment.status in ('in_transit', 'out_for_delivery') %}bg-info
-              {% elif shipment.status in ('cancelled', 'failed') %}bg-danger
-              {% else %}bg-secondary
-              {% endif %}">
-              {{ shipment.status }}
+            <span class="badge bg-{{ status_color(shipment.status) }}">
+              {{ status_label(shipment.status) }}
             </span>
           </td>
-          <td>{{ shipment.tracking_number or '—' }}</td>
           <td>
-            <a class="btn btn-sm btn-outline-primary"
-               href="/shipments/{{ shipment.id }}">Details</a>
+            <a href="/shipments/{{ shipment.id }}" class="btn btn-sm btn-outline-primary">
+              Szczegóły
+            </a>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+{% else %}
+<div class="empty">
+  <p class="empty-title">Brak przesyłek</p>
+  <p class="empty-subtitle text-secondary">
+    Utwórz pierwszą przesyłkę, aby rozpocząć.
+  </p>
+  <div class="empty-action">
+    <a href="/shipments/new" class="btn btn-primary">Nowa przesyłka</a>
   </div>
 </div>
 {% endif %}
