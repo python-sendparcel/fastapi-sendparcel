@@ -66,19 +66,20 @@ def _load_example_modules() -> ModuleType:
 def example_app():
     """Provide the example app with a fresh in-memory database per test."""
     app_mod = _load_example_modules()
+    models_mod = sys.modules["models"]
 
     # Create fresh in-memory engine for test isolation
     test_engine = create_async_engine("sqlite+aiosqlite://", echo=False)
     test_session = async_sessionmaker(test_engine, class_=AsyncSession)
 
-    # Override database components
-    original_engine = app_mod.engine
-    original_session = app_mod.async_session
+    # Override database components (engine is in models module now)
+    original_engine = models_mod.engine
+    original_session = models_mod.async_session
     original_repo_sf = app_mod.repository.session_factory
     original_retry_sf = app_mod.retry_store._session_factory
 
-    app_mod.engine = test_engine
-    app_mod.async_session = test_session
+    models_mod.engine = test_engine
+    models_mod.async_session = test_session
     app_mod.repository.session_factory = test_session
     app_mod.retry_store._session_factory = test_session
 
@@ -93,8 +94,8 @@ def example_app():
     yield app_mod
 
     # Restore originals
-    app_mod.engine = original_engine
-    app_mod.async_session = original_session
+    models_mod.engine = original_engine
+    models_mod.async_session = original_session
     app_mod.repository.session_factory = original_repo_sf
     app_mod.retry_store._session_factory = original_retry_sf
 
