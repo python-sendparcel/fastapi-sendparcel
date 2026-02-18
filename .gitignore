@@ -29,6 +29,7 @@ docs/apidocs/
 # IDE
 .vscode/
 .idea/
+.sisyphus/
 
 # OS
 .DS_Store
