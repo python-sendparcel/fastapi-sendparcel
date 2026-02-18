@@ -16,3 +16,8 @@ dependencies = [
 
 [tool.uv.sources]
 fastapi-sendparcel = { path = "..", editable = true }
+
+[dependency-groups]
+dev = [
+    "playwright>=1.58.0",
+]

@@ -26,6 +26,7 @@ from sendparcel.types import (
 # --- Templates setup ---
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+print(f"DEBUG: Loading templates from {TEMPLATES_DIR}")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
